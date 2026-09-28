@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Browser-only LCA dataset suitability checker for Ecoinvent Excel exports." />
+  <title>LCA Dataset Fit Checker</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">LCA QA TOOL</p>
+      <h1>LCA Dataset Fit Checker</h1>
+      <p class="subtitle">A transparent, browser-only check of how well a selected dataset represents a real process.</p>
+    </div>
+    <span class="privacy-badge">Local processing only</span>
+  </header>
+
+  <main class="shell">
+    <section class="panel" aria-labelledby="database-title">
+      <div class="panel-heading">
+        <div>
+          <span class="step">01</span>
+          <h2 id="database-title">Load database</h2>
+        </div>
+        <span id="databaseStatus" class="status neutral">No database loaded</span>
+      </div>
+
+      <div class="upload-grid">
+        <label class="file-drop" for="databaseFile">
+          <span class="file-icon">XLSX</span>
+          <strong>Select an Ecoinvent Excel export</strong>
+          <span>The workbook is parsed in this browser and is not uploaded by this application.</span>
+          <input id="databaseFile" type="file" accept=".xlsx,.xls,.xlsb,.csv" />
+        </label>
+
+        <div class="database-meta">
+          <label for="sheetSelect">Worksheet</label>
+          <select id="sheetSelect" disabled>
+            <option value="">Load a workbook first</option>
+          </select>
+          <div id="mappingSummary" class="mapping-summary">
+            <p>Required fields are detected automatically. At minimum, an activity/name column should be present.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="process-title">
+      <div class="panel-heading">
+        <div>
+          <span class="step">02</span>
+          <h2 id="process-title">Describe the real process</h2>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <label class="field span-2">
+          <span>Process description <em>required</em></span>
+          <textarea id="processDescription" rows="4" placeholder="Example: hot extrusion of an aluminium profile manufactured in Italy"></textarea>
+          <small>Use the physical process, material, product form and relevant technology. Italian and English terms are supported.</small>
+        </label>
+
+        <label class="field">
+          <span>Process archetype</span>
+          <select id="archetype">
+            <option value="manufacturing">Manufacturing / processing</option>
+            <option value="material">Material production</option>
+            <option value="energy">Energy</option>
+            <option value="transport">Transport</option>
+            <option value="waste">Waste treatment</option>
+            <option value="chemical">Chemical</option>
+            <option value="agriculture">Agriculture</option>
+            <option value="construction">Construction</option>
+            <option value="service">Service</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Geography</span>
+          <input id="processGeography" type="text" placeholder="IT, RER, DE, GLO..." />
+        </label>
+
+        <label class="field">
+          <span>Reference unit</span>
+          <input id="processUnit" type="text" placeholder="kg, kWh, tkm, m3..." />
+        </label>
+
+        <label class="field">
+          <span>Reference year</span>
+          <input id="processYear" type="number" min="1900" max="2200" placeholder="2026" />
+        </label>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="selection-title">
+      <div class="panel-heading">
+        <div>
+          <span class="step">03</span>
+          <h2 id="selection-title">Select the dataset to challenge</h2>
+        </div>
+      </div>
+
+      <label class="field">
+        <span>Dataset search</span>
+        <input id="datasetSearch" type="search" placeholder="Type part of the activity name or reference product..." disabled />
+      </label>
+      <div id="datasetSearchResults" class="search-results" aria-live="polite"></div>
+      <div id="selectedDataset" class="selected-dataset empty">No dataset selected.</div>
+    </section>
+
+    <section class="action-row">
+      <button id="evaluateBtn" class="primary" disabled>Evaluate dataset fit</button>
+      <button id="resetBtn" class="secondary">Reset analysis</button>
+    </section>
+
+    <section id="resultsPanel" class="panel results-panel hidden" aria-labelledby="results-title">
+      <div class="panel-heading">
+        <div>
+          <span class="step">04</span>
+          <h2 id="results-title">Fit assessment</h2>
+        </div>
+        <span id="fitVerdict" class="status neutral">Not evaluated</span>
+      </div>
+
+      <div class="score-layout">
+        <div class="score-card">
+          <span class="score-label">Dataset Fit Score</span>
+          <strong id="fitScore">0</strong>
+          <span class="score-denominator">/100</span>
+          <div class="meter"><span id="fitMeter"></span></div>
+        </div>
+        <div class="score-card">
+          <span class="score-label">Assessment confidence</span>
+          <strong id="confidenceScore">0%</strong>
+          <span id="confidenceLabel" class="score-note">Low</span>
+          <div class="meter"><span id="confidenceMeter"></span></div>
+        </div>
+        <div class="score-card">
+          <span class="score-label">Selection robustness</span>
+          <strong id="robustnessScore">—</strong>
+          <span id="robustnessLabel" class="score-note">Compared with best candidate</span>
+        </div>
+      </div>
+
+      <div class="results-grid">
+        <div>
+          <h3>Scoring breakdown</h3>
+          <div id="breakdown" class="breakdown"></div>
+        </div>
+        <div>
+          <h3>Assessment notes</h3>
+          <ul id="assessmentNotes" class="notes"></ul>
+        </div>
+      </div>
+
+      <div class="candidate-section">
+        <div class="section-heading">
+          <div>
+            <h3>Challenge selected dataset</h3>
+            <p>The complete loaded catalogue is rescored to identify materially better candidates.</p>
+          </div>
+          <span id="candidateCount"></span>
+        </div>
+        <div id="candidateResults" class="candidate-results"></div>
+      </div>
+
+      <div class="review-box">
+        <div>
+          <h3>Need expert review?</h3>
+          <p>Open a pre-filled email containing the process, selected dataset, score, key issues and strongest alternatives.</p>
+        </div>
+        <button id="reviewBtn" class="secondary">Request expert review</button>
+      </div>
+    </section>
+
+    <section class="panel compact" aria-labelledby="settings-title">
+      <details>
+        <summary id="settings-title">Local settings</summary>
+        <div class="settings-content">
+          <label class="field">
+            <span>Expert review email</span>
+            <input id="reviewEmail" type="email" placeholder="name@company.com" />
+            <small>Stored only in this browser. It is used to create a mailto link; the application does not send email itself.</small>
+          </label>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
+    <p>Version <span id="appVersion">0.1.0</span></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
