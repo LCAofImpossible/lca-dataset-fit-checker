@@ -1,0 +1,9 @@
+# Licensed / local LCA data must not be committed
+*.xlsx
+*.xls
+*.xlsb
+
+# Local OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
