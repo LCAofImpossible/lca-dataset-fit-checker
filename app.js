@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.1.0";
+  const APP_VERSION = "0.2.0";
 
   const state = {
     workbook: null,
@@ -23,7 +23,7 @@
     archetype: document.getElementById("archetype"),
     processGeography: document.getElementById("processGeography"),
     processUnit: document.getElementById("processUnit"),
-    processYear: document.getElementById("processYear"),
+    datasetPurpose: document.getElementById("datasetPurpose"),
     datasetSearch: document.getElementById("datasetSearch"),
     datasetSearchResults: document.getElementById("datasetSearchResults"),
     selectedDataset: document.getElementById("selectedDataset"),
@@ -51,27 +51,40 @@
     activity: [
       "activity name", "activityname", "activity", "dataset name", "datasetname", "name"
     ],
-    product: [
-      "reference product", "referenceproduct", "reference flow", "referenceflow",
-      "product name", "productname", "product"
-    ],
     geography: [
       "geography", "geographical location", "geographic location", "location", "geo"
+    ],
+    specialType: [
+      "special activity type", "specialactivitytype"
+    ],
+    sector: [
+      "sector", "activity sector", "activitysector"
+    ],
+    isic: [
+      "isic classification", "isicclassification", "isic"
+    ],
+    isicSection: [
+      "isic section", "isicsection"
+    ],
+    cpc: [
+      "cpc classification", "cpcclassification", "cpc"
+    ],
+    hs: [
+      "hs2017 classification", "hs2017classification", "hs classification", "hsclassification", "hs2017", "hs"
     ],
     unit: [
       "unit", "reference unit", "referenceunit", "unit name", "unitname"
     ],
+    productInfo: [
+      "product information", "productinformation"
+    ],
+    product: [
+      "reference product", "referenceproduct", "reference flow", "referenceflow",
+      "product name", "productname", "product"
+    ],
     technology: [
       "technology", "technology comment", "technologycomment", "general comment",
       "generalcomment", "comment", "dataset comment", "datasetcomment", "description"
-    ],
-    startYear: [
-      "start year", "startyear", "start date", "startdate", "valid from", "validfrom",
-      "time period start", "timeperiodstart"
-    ],
-    endYear: [
-      "end year", "endyear", "end date", "enddate", "valid until", "validuntil",
-      "time period end", "timeperiodend"
     ],
     id: [
       "activity uuid", "activityuuid", "activity id", "activityid", "uuid", "dataset id", "datasetid", "id"
@@ -82,15 +95,15 @@
   };
 
   const WEIGHTS = {
-    manufacturing: { description: 25, product: 15, geography: 10, technology: 25, temporal: 10, unit: 5, role: 10 },
-    material:      { description: 25, product: 20, geography: 15, technology: 15, temporal: 10, unit: 5, role: 10 },
-    energy:        { description: 20, product: 15, geography: 25, technology: 15, temporal: 10, unit: 5, role: 10 },
-    transport:     { description: 25, product: 10, geography: 10, technology: 20, temporal: 10, unit: 15, role: 10 },
-    waste:         { description: 25, product: 15, geography: 15, technology: 15, temporal: 10, unit: 5, role: 15 },
-    chemical:      { description: 25, product: 20, geography: 15, technology: 15, temporal: 10, unit: 5, role: 10 },
-    agriculture:   { description: 20, product: 15, geography: 20, technology: 15, temporal: 15, unit: 5, role: 10 },
-    construction:  { description: 25, product: 20, geography: 15, technology: 15, temporal: 10, unit: 5, role: 10 },
-    service:       { description: 35, product: 10, geography: 15, technology: 10, temporal: 10, unit: 5, role: 15 }
+    manufacturing: { process: 35, product: 25, context: 15, geography: 10, unit: 5, role: 10 },
+    material:      { process: 25, product: 30, context: 15, geography: 15, unit: 5, role: 10 },
+    energy:        { process: 25, product: 20, context: 10, geography: 30, unit: 5, role: 10 },
+    transport:     { process: 30, product: 10, context: 10, geography: 10, unit: 25, role: 15 },
+    waste:         { process: 30, product: 20, context: 15, geography: 15, unit: 5, role: 15 },
+    chemical:      { process: 30, product: 30, context: 15, geography: 10, unit: 5, role: 10 },
+    agriculture:   { process: 25, product: 25, context: 15, geography: 20, unit: 5, role: 10 },
+    construction:  { process: 30, product: 25, context: 15, geography: 15, unit: 5, role: 10 },
+    service:       { process: 35, product: 15, context: 15, geography: 10, unit: 10, role: 15 }
   };
 
   const PHRASE_REPLACEMENTS = [
@@ -232,15 +245,19 @@
     return [...new Set(out)];
   }
 
-  function tokenSimilarity(query, target) {
-    const q = tokens(query);
-    const t = new Set(tokens(target));
+  function tokenSimilarityFromTokens(queryTokens, targetTokens) {
+    const q = [...new Set(queryTokens || [])];
+    const t = new Set(targetTokens || []);
     if (!q.length || !t.size) return 0;
     const intersection = q.filter(token => t.has(token)).length;
     const coverage = intersection / q.length;
     const union = new Set([...q, ...t]).size || 1;
     const jaccard = intersection / union;
     return Math.max(0, Math.min(100, Math.round((coverage * 0.78 + jaccard * 0.22) * 100)));
+  }
+
+  function tokenSimilarity(query, target) {
+    return tokenSimilarityFromTokens(tokens(query), tokens(target));
   }
 
   function detectColumn(headers, aliases) {
@@ -278,12 +295,15 @@
 
   function mappingQuality(mapping) {
     return (
-      (mapping.activity >= 0 ? 5 : 0) +
-      (mapping.product >= 0 ? 3 : 0) +
+      (mapping.activity >= 0 ? 6 : 0) +
       (mapping.geography >= 0 ? 2 : 0) +
+      (mapping.specialType >= 0 ? 2 : 0) +
+      (mapping.sector >= 0 ? 2 : 0) +
+      (mapping.productInfo >= 0 ? 2 : 0) +
+      (mapping.cpc >= 0 ? 1 : 0) +
+      (mapping.isic >= 0 ? 1 : 0) +
       (mapping.unit >= 0 ? 1 : 0) +
-      (mapping.technology >= 0 ? 1 : 0) +
-      (mapping.startYear >= 0 || mapping.endYear >= 0 ? 1 : 0)
+      (mapping.product >= 0 ? 1 : 0)
     );
   }
 
@@ -314,18 +334,31 @@
       const product = safeCell(source, mapping.product);
       if (!activity && !product) continue;
 
-      output.push({
+      const row = {
         _rowIndex: i + 1,
         activity,
         product,
         geography: safeCell(source, mapping.geography),
+        specialType: safeCell(source, mapping.specialType),
+        sector: safeCell(source, mapping.sector),
+        isic: safeCell(source, mapping.isic),
+        isicSection: safeCell(source, mapping.isicSection),
+        cpc: safeCell(source, mapping.cpc),
+        hs: safeCell(source, mapping.hs),
         unit: safeCell(source, mapping.unit),
+        productInfo: safeCell(source, mapping.productInfo),
         technology: safeCell(source, mapping.technology),
-        startYear: safeCell(source, mapping.startYear),
-        endYear: safeCell(source, mapping.endYear),
         id: safeCell(source, mapping.id),
         type: safeCell(source, mapping.type)
-      });
+      };
+
+      row._activityTokens = tokens(`${row.activity} ${row.technology}`);
+      row._productTokens = tokens(`${row.product} ${row.productInfo} ${row.cpc} ${row.hs}`).slice(0, 180);
+      row._contextTokens = tokens(`${row.sector} ${row.isic} ${row.isicSection} ${row.cpc}`).slice(0, 120);
+      row._searchCanonical = canonicalizeText(
+        `${row.activity} ${row.product} ${row.geography} ${row.specialType} ${row.sector} ${row.isic} ${row.cpc} ${row.hs} ${row.productInfo.slice(0, 650)}`
+      );
+      output.push(row);
     }
 
     return output;
@@ -333,7 +366,7 @@
 
   function datasetLabel(row) {
     const main = row.activity || row.product || "Unnamed dataset";
-    const meta = [row.product, row.geography, row.unit].filter(Boolean).join(" · ");
+    const meta = [row.geography, row.specialType, row.sector, row.unit].filter(Boolean).join(" · ");
     return { main, meta };
   }
 
@@ -355,13 +388,15 @@
     const headers = state.matrix[state.headerRow] || [];
     const fields = [
       ["activity", "Activity"],
-      ["product", "Reference product"],
       ["geography", "Geography"],
+      ["specialType", "Special activity type"],
+      ["sector", "Sector"],
+      ["isic", "ISIC"],
+      ["isicSection", "ISIC section"],
+      ["cpc", "CPC"],
+      ["hs", "HS2017"],
       ["unit", "Unit"],
-      ["technology", "Technology/comment"],
-      ["startYear", "Start date"],
-      ["endYear", "End date"],
-      ["id", "ID"]
+      ["productInfo", "Product information"]
     ];
 
     const tags = fields.map(([field, label]) => {
@@ -371,8 +406,14 @@
       return `<span class="tag ${mapped ? "mapped" : ""}">${escapeHtml(label)}${suffix}</span>`;
     }).join("");
 
+    const exactEcoinventProfile = [
+      "activity", "geography", "specialType", "sector", "isic",
+      "isicSection", "cpc", "hs", "unit", "productInfo"
+    ].every(field => state.mapping[field] >= 0);
+
     els.mappingSummary.innerHTML = `
-      <p><strong>${state.rows.length.toLocaleString()} datasets</strong> loaded. Header detected on Excel row ${state.headerRow + 1}.</p>
+      <p><strong>${state.rows.length.toLocaleString()} datasets</strong> loaded. Header detected on Excel row ${state.headerRow + 1}.
+      ${exactEcoinventProfile ? "<strong>Ecoinvent 3.11 catalogue profile recognized.</strong>" : ""}</p>
       <div class="mapping-tags">${tags}</div>
     `;
   }
@@ -448,12 +489,15 @@
     if (!q || q.length < 2) return [];
 
     const canonicalQuery = canonicalizeText(q);
+    const queryTokens = tokens(q);
+
     return state.rows
       .map(row => {
-        const haystack = `${row.activity} ${row.product} ${row.geography} ${row.unit}`;
-        const canonicalHaystack = canonicalizeText(haystack);
-        const direct = canonicalHaystack.includes(canonicalQuery) ? 1 : 0;
-        const similarity = tokenSimilarity(q, haystack) / 100;
+        const direct = row._searchCanonical.includes(canonicalQuery) ? 1 : 0;
+        const activitySimilarity = tokenSimilarityFromTokens(queryTokens, row._activityTokens);
+        const productSimilarity = tokenSimilarityFromTokens(queryTokens, row._productTokens);
+        const contextSimilarity = tokenSimilarityFromTokens(queryTokens, row._contextTokens);
+        const similarity = Math.max(activitySimilarity, productSimilarity * 0.92, contextSimilarity * 0.78) / 100;
         const score = direct * 2 + similarity;
         return { row, score };
       })
@@ -565,68 +609,85 @@
     return normalizeUnit(userUnit) === normalizeUnit(datasetUnit) ? 100 : 20;
   }
 
-  function yearsFrom(value) {
-    return (String(value ?? "").match(/(?:19|20|21)\d{2}/g) || []).map(Number);
+  function datasetRole(row) {
+    const type = canonicalizeText(row.specialType || row.type);
+    if (type.includes("market group")) return "market_group";
+    if (type.includes("market activity")) return "market";
+    if (type.includes("production mix")) return "production_mix";
+    return "transforming";
   }
 
-  function temporalScore(userYear, row) {
-    const target = Number(userYear);
-    if (!Number.isFinite(target) || target < 1900) return 70;
-
-    const startYears = yearsFrom(row.startYear);
-    const endYears = yearsFrom(row.endYear);
-    const allYears = [...startYears, ...endYears];
-    if (!allYears.length) return 50;
-
-    const start = startYears.length ? Math.min(...startYears) : Math.min(...allYears);
-    const end = endYears.length ? Math.max(...endYears) : Math.max(...allYears);
-
-    if (target >= start && target <= end) return 100;
-
-    const distance = Math.min(Math.abs(target - start), Math.abs(target - end));
-    if (distance <= 1) return 90;
-    if (distance <= 3) return 75;
-    if (distance <= 5) return 60;
-    if (distance <= 10) return 40;
-    return 20;
+  function datasetFamily(row) {
+    const text = canonicalizeText(`${row.activity} ${row.sector} ${row.isicSection}`);
+    if (text.includes("waste") || text.includes("treatment") || text.includes("disposal") || text.includes("recycling")) return "waste";
+    if (text.includes("transport") || text.includes("freight") || text.includes("transportation")) return "transport";
+    if (text.includes("electricity") || text.includes("heat") || text.includes("power generation")) return "energy";
+    return "general";
   }
 
-  function inferRole(row) {
-    const text = canonicalizeText(`${row.activity} ${row.type}`);
-    if (text.includes("market for") || text.startsWith("market ")) return "market";
-    if (text.includes("treatment") || text.includes("waste") || text.includes("disposal")) return "treatment";
-    if (text.includes("transport") || text.includes("freight")) return "transport";
-    if (text.includes("electricity") || text.includes("heat production") || text.includes("power generation")) return "energy";
-    if (text.includes("service")) return "service";
-    return "production";
+  function sectorArchetypeScore(archetype, row) {
+    const text = canonicalizeText(`${row.sector} ${row.isic} ${row.isicSection}`);
+    const includesAny = (...terms) => terms.some(term => text.includes(term));
+
+    if (archetype === "energy") return includesAny("electricity", "heat", "fuel", "gas steam") ? 100 : 35;
+    if (archetype === "transport") return includesAny("transport", "transportation storage") ? 100 : 30;
+    if (archetype === "waste") return includesAny("waste treatment recycling", "waste management", "remediation") ? 100 : 25;
+    if (archetype === "chemical") return includesAny("chemical", "manufacture of chemicals") ? 100 : 35;
+    if (archetype === "agriculture") return includesAny("agriculture", "animal husbandry", "forestry fishing", "land use") ? 100 : 30;
+    if (archetype === "construction") return includesAny("construction", "cement concrete", "infrastructure machinery") ? 100 : 40;
+    if (archetype === "material") {
+      return includesAny("metals", "wood", "pulp paper", "cement concrete", "resource extraction", "mining quarrying", "chemical") ? 95 : 55;
+    }
+    if (archetype === "service") {
+      return includesAny("service", "information communication", "professional scientific", "administrative support", "accommodation", "wholesale retail") ? 100 : 55;
+    }
+    if (archetype === "manufacturing") {
+      return includesAny("manufacturing", "metals", "electronics", "infrastructure machinery", "wood", "pulp paper", "batteries", "textile", "plastic") ? 95 : 50;
+    }
+    return 60;
   }
 
-  function roleScore(archetype, row) {
-    const role = inferRole(row);
-    const rules = {
-      manufacturing: { production: 100, market: 35, treatment: 10, transport: 15, energy: 15, service: 20 },
-      material:      { production: 100, market: 78, treatment: 20, transport: 15, energy: 20, service: 15 },
-      energy:        { production: 80, market: 92, treatment: 10, transport: 10, energy: 100, service: 15 },
-      transport:     { production: 25, market: 30, treatment: 10, transport: 100, energy: 25, service: 40 },
-      waste:         { production: 20, market: 20, treatment: 100, transport: 30, energy: 25, service: 35 },
-      chemical:      { production: 100, market: 75, treatment: 15, transport: 10, energy: 15, service: 15 },
-      agriculture:   { production: 100, market: 70, treatment: 20, transport: 15, energy: 15, service: 20 },
-      construction:  { production: 100, market: 70, treatment: 20, transport: 15, energy: 15, service: 25 },
-      service:       { production: 35, market: 35, treatment: 30, transport: 55, energy: 35, service: 100 }
-    };
-    return (rules[archetype] || rules.manufacturing)[role] ?? 50;
+  function expectedDatasetRole(input) {
+    if (input.purpose && input.purpose !== "auto") {
+      if (["waste", "transport", "energy"].includes(input.purpose)) return null;
+      return input.purpose;
+    }
+
+    const text = canonicalizeText(input.description);
+    if (text.includes("market for") || text.includes("market mix") || text.includes("supply mix") || text.includes("fornitura") || text.includes("acquisto")) return "market";
+    if (text.includes("production mix") || text.includes("mix di produzione")) return "production_mix";
+    return null;
+  }
+
+  function roleScore(input, row) {
+    const expected = expectedDatasetRole(input);
+    const actual = datasetRole(row);
+    const family = datasetFamily(row);
+
+    if (input.purpose === "waste") return family === "waste" ? 100 : 20;
+    if (input.purpose === "transport") return family === "transport" ? 100 : 20;
+    if (input.purpose === "energy") return family === "energy" ? 100 : 20;
+    if (!expected) return 70;
+    if (expected === actual) return 100;
+    if (expected === "market" && actual === "market_group") return 90;
+    if (expected === "market" && actual === "production_mix") return 72;
+    if (expected === "production_mix" && actual === "market") return 65;
+    if (expected === "transforming" && actual === "production_mix") return 55;
+    if (expected === "transforming" && actual === "market") return 35;
+    return 40;
   }
 
   function scoreDataset(row, input) {
     const weights = WEIGHTS[input.archetype] || WEIGHTS.manufacturing;
+    const qTokens = input._tokens || tokens(input.description);
+    const semanticContext = tokenSimilarityFromTokens(qTokens, row._contextTokens);
     const components = {
-      description: tokenSimilarity(input.description, `${row.activity} ${row.product} ${row.technology}`),
-      product: tokenSimilarity(input.description, row.product || row.activity),
+      process: tokenSimilarityFromTokens(qTokens, row._activityTokens),
+      product: tokenSimilarityFromTokens(qTokens, row._productTokens),
+      context: Math.max(semanticContext, sectorArchetypeScore(input.archetype, row)),
       geography: geographyScore(input.geography, row.geography),
-      technology: tokenSimilarity(input.description, `${row.technology} ${row.activity}`),
-      temporal: temporalScore(input.year, row),
       unit: unitScore(input.unit, row.unit),
-      role: roleScore(input.archetype, row)
+      role: roleScore(input, row)
     };
 
     let weighted = 0;
@@ -643,30 +704,34 @@
   }
 
   function assessmentInput() {
+    const description = cleanText(els.processDescription.value);
     return {
-      description: cleanText(els.processDescription.value),
+      description,
+      _tokens: tokens(description),
       archetype: els.archetype.value,
+      purpose: els.datasetPurpose.value,
       geography: cleanText(els.processGeography.value),
-      unit: cleanText(els.processUnit.value),
-      year: cleanText(els.processYear.value)
+      unit: cleanText(els.processUnit.value)
     };
   }
 
   function confidenceScore(input) {
     let score = 10;
-    const wordCount = tokens(input.description).length;
+    const wordCount = input._tokens.length;
 
     score += Math.min(25, wordCount * 3);
-    if (input.geography) score += 12;
-    if (input.unit) score += 8;
-    if (input.year) score += 8;
+    if (input.geography) score += 10;
+    if (input.unit) score += 7;
+    if (input.purpose && input.purpose !== "auto") score += 8;
 
-    if (state.mapping.activity >= 0) score += 14;
-    if (state.mapping.product >= 0) score += 10;
+    if (state.mapping.activity >= 0) score += 12;
     if (state.mapping.geography >= 0) score += 4;
-    if (state.mapping.technology >= 0) score += 4;
+    if (state.mapping.specialType >= 0) score += 7;
+    if (state.mapping.sector >= 0) score += 6;
+    if (state.mapping.isic >= 0) score += 3;
+    if (state.mapping.cpc >= 0) score += 4;
+    if (state.mapping.productInfo >= 0) score += 9;
     if (state.mapping.unit >= 0) score += 3;
-    if (state.mapping.startYear >= 0 || state.mapping.endYear >= 0) score += 2;
 
     return Math.min(100, Math.round(score));
   }
@@ -687,13 +752,12 @@
 
   function componentLabel(key) {
     return {
-      description: "Functional / semantic",
-      product: "Reference product",
+      process: "Process / technology",
+      product: "Product / material",
+      context: "Sector / classification",
       geography: "Geography",
-      technology: "Technology",
-      temporal: "Temporal",
       unit: "Reference unit",
-      role: "Dataset role"
+      role: "Dataset role / purpose"
     }[key] || key;
   }
 
@@ -715,36 +779,33 @@
     const c = assessment.components;
     const row = assessment.row;
 
-    if (c.description >= 80) notes.push("Strong semantic overlap between the real-process description and the dataset metadata.");
-    else if (c.description < 55) notes.push("Limited semantic overlap: verify that the dataset actually represents the physical process being modelled.");
+    if (c.process >= 80) notes.push("Strong match between the real-process description and the Ecoinvent activity name.");
+    else if (c.process < 55) notes.push("Process/technology alignment is weak: verify that the activity name represents the physical operation being modelled.");
 
-    if (c.product < 55) notes.push("Reference product alignment is weak or insufficiently evidenced by the available Excel metadata.");
+    if (c.product < 55) {
+      notes.push("Product/material alignment is weak based on Product Information and CPC/HS classification.");
+    }
+
+    if (c.context < 55) {
+      notes.push(`Sector/classification alignment is weak for the selected ${input.archetype} archetype.`);
+    }
 
     if (input.geography && c.geography < 70) {
       notes.push(`Geographical representativeness is limited: requested ${input.geography}, dataset ${row.geography || "not stated"}.`);
-    }
-
-    if (c.technology < 55) {
-      notes.push("Technology/process match is weak. Check the dataset comment or technical documentation before accepting the proxy.");
     }
 
     if (input.unit && c.unit < 70) {
       notes.push(`Reference unit mismatch: requested ${input.unit}, dataset ${row.unit || "not stated"}.`);
     }
 
-    if (input.year && c.temporal < 60) {
-      notes.push("Temporal representativeness is weak relative to the requested reference year.");
-    }
-
     if (c.role < 60) {
-      const role = inferRole(row);
-      notes.push(`Dataset-role warning: this appears to be a ${role} dataset, which may not match the selected process archetype.`);
+      notes.push(`Dataset-purpose warning: dataset type is "${row.specialType || row.type || "not stated"}" and may not match the intended modelling role.`);
     }
 
-    if (!row.technology) notes.push("No dedicated technology/comment field was detected for this dataset; technology scoring relies mainly on the activity name.");
-    if (!row.geography) notes.push("No geography value was available in the detected Excel columns.");
+    if (!row.productInfo) notes.push("No Product Information text is available for this dataset; product/material scoring relies on classifications and activity name.");
+    if (!row.geography) notes.push("No geography value is available for this dataset.");
 
-    if (!notes.length) notes.push("No material red flags were identified by the screening rules. Professional review may still be required for consequential modelling choices.");
+    notes.push("Temporal representativeness is not scored because this Ecoinvent catalogue export contains no temporal field.");
 
     return notes;
   }
@@ -859,7 +920,7 @@
     els.processDescription.value = "";
     els.processGeography.value = "";
     els.processUnit.value = "";
-    els.processYear.value = "";
+    els.datasetPurpose.value = "auto";
     els.archetype.value = "manufacturing";
     els.datasetSearch.value = "";
     els.datasetSearchResults.innerHTML = "";
@@ -898,11 +959,14 @@
       `Process archetype: ${input.archetype}`,
       `Requested geography: ${input.geography || "not specified"}`,
       `Requested unit: ${input.unit || "not specified"}`,
-      `Reference year: ${input.year || "not specified"}`,
+      `Dataset purpose: ${input.purpose || "auto"}`,
       "",
       `Selected dataset: ${selected.activity || "not stated"}`,
-      `Reference product: ${selected.product || "not stated"}`,
+      `Product information: ${selected.productInfo ? selected.productInfo.slice(0, 500) : (selected.product || "not stated")}`,
       `Dataset geography: ${selected.geography || "not stated"}`,
+      `Special activity type: ${selected.specialType || "not stated"}`,
+      `Sector: ${selected.sector || "not stated"}`,
+      `CPC classification: ${selected.cpc || "not stated"}`,
       `Dataset unit: ${selected.unit || "not stated"}`,
       `Dataset ID: ${selected.id || "not available"}`,
       "",
