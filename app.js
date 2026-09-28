@@ -555,7 +555,8 @@
     const upper = raw.toUpperCase().replace(/\s+/g, " ").trim();
     if (upper === "ROW") return "ROW";
     if (upper.includes("RER") && upper.includes("CH")) return "RERWCH";
-    if (upper === "EUROPE") return "RER";
+    if (canonical.includes("europe without switzerland")) return "RERWCH";
+    if (upper === "EUROPE" || canonical.includes("eu27") || canonical.includes("efta")) return "RER";
     return upper;
   }
 
@@ -597,7 +598,8 @@
       megajoule: "mj", mj: "mj",
       cubicmetre: "m3", cubicmeter: "m3", m3: "m3",
       squaremetre: "m2", squaremeter: "m2", m2: "m2",
-      tonkilometer: "tkm", tonnekilometre: "tkm", tkm: "tkm",
+      tonkilometer: "tkm", tonnekilometre: "tkm", metrictonkm: "tkm", metrictonnekm: "tkm", tkm: "tkm",
+      personkm: "pkm", passengerkm: "pkm", pkm: "pkm",
       unit: "unit", piece: "unit", item: "unit"
     };
     return aliases[unit] || unit;
