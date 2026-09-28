@@ -4,12 +4,12 @@ Browser-only screening tool for assessing how well an LCA dataset represents a r
 
 ## Current version
 
-**v0.1.0**
+**v0.2.0**
 
 The first version provides:
 
 - local reading of Ecoinvent Excel/CSV exports;
-- automatic detection of common activity, reference-product, geography, unit, technology/comment and temporal columns;
+- calibration for the supplied Ecoinvent 3.11 catalogue structure (Activity Name, Geography, Special Activity Type, Sector, ISIC, CPC, HS2017, Unit and Product Information);
 - dataset search and manual selection;
 - reproducible 0–100 fit scoring;
 - process-archetype-specific weighting;
@@ -22,15 +22,16 @@ The first version provides:
 
 ## Scoring model
 
-The tool currently evaluates seven dimensions:
+The tool currently evaluates six dimensions:
 
-1. Functional / semantic alignment
-2. Reference-product alignment
-3. Geography
-4. Technology / process alignment
-5. Temporal representativeness
-6. Reference unit
-7. Dataset role
+1. Process / technology alignment
+2. Product / material alignment, using Product Information plus CPC/HS metadata
+3. Sector / classification consistency, using Sector and ISIC metadata
+4. Geography
+5. Reference unit
+6. Dataset role / intended modelling purpose
+
+Temporal representativeness is deliberately not scored for this catalogue export because the supplied workbook does not contain temporal metadata.
 
 Weights change according to the selected process archetype (manufacturing, material production, energy, transport, waste treatment, chemical, agriculture, construction or service).
 
@@ -69,10 +70,9 @@ For a private repository, GitHub Pages availability depends on the GitHub plan a
 
 Planned improvements after testing with the actual Ecoinvent workbook:
 
-- calibrate column detection against the exact workbook structure;
 - expand the Italian/English LCA terminology dictionary;
 - improve geography hierarchy and market-region logic;
-- distinguish material production, transformation and market datasets more precisely;
+- continue refining the distinction between ordinary transforming activities, market activities, market groups and production mixes;
 - introduce explicit hard-fail rules for incompatible reference products or dataset roles;
 - validate score thresholds on expert-reviewed examples;
 - optionally persist the workbook locally in IndexedDB;
