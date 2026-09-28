@@ -89,8 +89,17 @@
         </label>
 
         <label class="field">
-          <span>Reference year</span>
-          <input id="processYear" type="number" min="1900" max="2200" placeholder="2026" />
+          <span>Dataset purpose</span>
+          <select id="datasetPurpose">
+            <option value="auto">Auto infer from description</option>
+            <option value="transforming">Physical production / transformation</option>
+            <option value="market">Supply / market mix</option>
+            <option value="production_mix">Production mix</option>
+            <option value="waste">Waste treatment</option>
+            <option value="transport">Transport service</option>
+            <option value="energy">Energy supply</option>
+          </select>
+          <small>Use this when you know whether the model needs a transforming activity or a supply/market dataset.</small>
         </label>
       </div>
     </section>
@@ -105,7 +114,7 @@
 
       <label class="field">
         <span>Dataset search</span>
-        <input id="datasetSearch" type="search" placeholder="Type part of the activity name or reference product..." disabled />
+        <input id="datasetSearch" type="search" placeholder="Type activity, material, sector, CPC/ISIC term..." disabled />
       </label>
       <div id="datasetSearchResults" class="search-results" aria-live="polite"></div>
       <div id="selectedDataset" class="selected-dataset empty">No dataset selected.</div>
@@ -192,7 +201,7 @@
 
   <footer>
     <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
-    <p>Version <span id="appVersion">0.1.0</span></p>
+    <p>Version <span id="appVersion">0.2.0</span></p>
   </footer>
 
   <script src="app.js"></script>
