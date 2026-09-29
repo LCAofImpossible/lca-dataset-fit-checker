@@ -1175,3 +1175,11 @@ footer p {
 .form-grid .field > textarea {
   align-self: start;
 }
+
+
+.form-requirement-note {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
