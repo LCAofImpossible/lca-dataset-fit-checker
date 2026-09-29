@@ -1229,3 +1229,70 @@ footer p {
     grid-template-columns: 1fr;
   }
 }
+
+
+.geo-detection {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.geo-detection.neutral {
+  color: var(--muted);
+}
+
+.geo-detection.detected {
+  border-color: #b8d8c6;
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.geo-detection.warning {
+  border-color: #ead39c;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.geo-detection.confirmed {
+  border-color: #b8d8c6;
+  background: #f2f8f5;
+  color: var(--good);
+}
+
+.mini-action {
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.mini-action:hover {
+  background: #fff;
+}
+
+.mini-action.hidden {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .geo-detection {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mini-action {
+    width: 100%;
+  }
+}
