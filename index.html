@@ -154,6 +154,15 @@
         </div>
       </div>
 
+      <div id="criticalCheck" class="critical-check hidden" role="status" aria-live="polite">
+        <div class="critical-icon" aria-hidden="true">!</div>
+        <div>
+          <strong id="criticalTitle">Critical compatibility check</strong>
+          <p id="criticalSummary"></p>
+          <ul id="criticalIssues" class="critical-issues"></ul>
+        </div>
+      </div>
+
       <div class="results-grid">
         <div>
           <h3>Scoring breakdown</h3>
@@ -165,21 +174,54 @@
         </div>
       </div>
 
-      <div class="candidate-section">
-        <div class="section-heading">
-          <div>
-            <h3>Challenge selected dataset</h3>
-            <p>The complete loaded catalogue is rescored to identify materially better candidates.</p>
+      <div class="analysis-sections">
+        <details id="evidenceSection" class="analysis-section">
+          <summary>
+            <span>
+              <strong>Why this score?</strong>
+              <small>See the evidence used for each criterion.</small>
+            </span>
+            <span class="section-chip">Evidence</span>
+          </summary>
+          <div id="evidencePanel" class="analysis-content evidence-grid"></div>
+        </details>
+
+        <details id="compareSection" class="analysis-section">
+          <summary>
+            <span>
+              <strong>Compare alternatives</strong>
+              <small>Compare the selected dataset with the strongest candidates found in the catalogue.</small>
+            </span>
+            <span id="candidateCount" class="section-chip">Candidates</span>
+          </summary>
+          <div class="analysis-content">
+            <div id="comparisonTable" class="comparison-wrap"></div>
+            <div class="candidate-list-heading">
+              <h3>Top catalogue candidates</h3>
+              <p>Useful for exploring alternatives beyond the side-by-side comparison.</p>
+            </div>
+            <div id="candidateResults" class="candidate-results"></div>
           </div>
-          <span id="candidateCount"></span>
-        </div>
-        <div id="candidateResults" class="candidate-results"></div>
+        </details>
+
+        <details id="inputQualitySection" class="analysis-section">
+          <summary>
+            <span>
+              <strong>Input quality</strong>
+              <small>See what additional information would make the assessment more reliable.</small>
+            </span>
+            <span id="inputQualityBadge" class="section-chip">Input</span>
+          </summary>
+          <div class="analysis-content">
+            <div id="missingInfoPanel" class="missing-info-panel"></div>
+          </div>
+        </details>
       </div>
 
       <div class="review-box">
         <div>
           <h3>Need expert review?</h3>
-          <p>Open a pre-filled email containing the process, selected dataset, score, key issues and strongest alternatives.</p>
+          <p>Open a pre-filled email containing the process, selected dataset, score, critical issues and strongest alternatives.</p>
         </div>
         <button id="reviewBtn" class="secondary">Request expert review</button>
       </div>
@@ -201,7 +243,7 @@
 
   <footer>
     <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
-    <p>Version <span id="appVersion">0.2.0</span></p>
+    <p>Version <span id="appVersion">0.3.0</span></p>
   </footer>
 
   <script src="app.js"></script>
