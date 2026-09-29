@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.3.4";
+  const APP_VERSION = "0.3.5";
 
   const state = {
     workbook: null,
@@ -14,6 +14,8 @@
     geographies: [],
     geographyConfirmed: false,
     geographySource: "",
+    datasetSearchMatches: [],
+    datasetSearchVisible: 0,
     selectedDataset: null,
     lastAssessment: null
   };
@@ -803,6 +805,8 @@
     state.rows = detected.row >= 0 ? buildRows(matrix, detected.row, detected.mapping) : [];
     state.selectedDataset = null;
     state.lastAssessment = null;
+    state.datasetSearchMatches = [];
+    state.datasetSearchVisible = 0;
     state.geographyConfirmed = false;
     state.geographySource = "";
 
@@ -830,6 +834,8 @@
     els.datasetSearch.disabled = false;
     els.datasetSearch.value = "";
     els.datasetSearchResults.innerHTML = "";
+    state.datasetSearchMatches = [];
+    state.datasetSearchVisible = 0;
     populateReferenceUnitOptions();
     populateGeographyOptions();
     renderMapping();
@@ -858,6 +864,8 @@
     }
   }
 
+  const DATASET_SEARCH_BATCH = 50;
+
   function searchDatasets(query) {
     const q = cleanText(query);
     if (!q || q.length < 2) return [];
@@ -867,33 +875,68 @@
 
     return state.rows
       .map(row => {
-        const direct = row._searchCanonical.includes(canonicalQuery) ? 1 : 0;
+        const activityCanonical = canonicalizeText(row.activity);
+        const productCanonical = canonicalizeText(row.product);
+        const exactActivity = activityCanonical === canonicalQuery ? 1 : 0;
+        const exactProduct = productCanonical === canonicalQuery ? 1 : 0;
+        const activityDirect = activityCanonical.includes(canonicalQuery) ? 1 : 0;
+        const productDirect = productCanonical.includes(canonicalQuery) ? 1 : 0;
+        const metadataDirect = row._searchCanonical.includes(canonicalQuery) ? 1 : 0;
+
         const activitySimilarity = tokenSimilarityFromTokens(queryTokens, row._activityTokens);
         const productSimilarity = tokenSimilarityFromTokens(queryTokens, row._productTokens);
         const contextSimilarity = tokenSimilarityFromTokens(queryTokens, row._contextTokens);
         const similarity = Math.max(activitySimilarity, productSimilarity * 0.92, contextSimilarity * 0.78) / 100;
-        const score = direct * 2 + similarity;
-        return { row, score };
+
+        const matchTier =
+          exactActivity ? 6 :
+          exactProduct ? 5 :
+          activityDirect ? 4 :
+          productDirect ? 3 :
+          metadataDirect ? 2 :
+          0;
+
+        const score = matchTier * 10 + similarity;
+        return { row, score, matchTier };
       })
-      .filter(item => item.score > 0.12)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 30);
+      .filter(item => item.matchTier > 0 || item.score > 0.12)
+      .sort((a, b) => {
+        if (b.matchTier !== a.matchTier) return b.matchTier - a.matchTier;
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.row.activity || "").localeCompare(b.row.activity || "", undefined, { sensitivity: "base" });
+      });
   }
 
-  function renderDatasetSearch(query) {
-    const matches = searchDatasets(query);
+  function renderDatasetSearch(query, append = false) {
+    const q = cleanText(query);
 
-    if (!cleanText(query)) {
+    if (!q) {
+      state.datasetSearchMatches = [];
+      state.datasetSearchVisible = 0;
       els.datasetSearchResults.innerHTML = "";
       return;
     }
 
+    if (!append) {
+      state.datasetSearchMatches = searchDatasets(q);
+      state.datasetSearchVisible = Math.min(DATASET_SEARCH_BATCH, state.datasetSearchMatches.length);
+    } else {
+      state.datasetSearchVisible = Math.min(
+        state.datasetSearchVisible + DATASET_SEARCH_BATCH,
+        state.datasetSearchMatches.length
+      );
+    }
+
+    const matches = state.datasetSearchMatches;
     if (!matches.length) {
       els.datasetSearchResults.innerHTML = '<div class="selected-dataset empty">No matching datasets found.</div>';
       return;
     }
 
-    els.datasetSearchResults.innerHTML = matches.map(({ row }) => {
+    const visible = matches.slice(0, state.datasetSearchVisible);
+    const remaining = matches.length - visible.length;
+
+    const resultsHtml = visible.map(({ row }) => {
       const label = datasetLabel(row);
       return `
         <button type="button" class="search-result" data-row-index="${row._rowIndex}">
@@ -902,6 +945,17 @@
         </button>
       `;
     }).join("");
+
+    const footerHtml = `
+      <div class="search-results-footer">
+        <span>Showing ${visible.length.toLocaleString()} of ${matches.length.toLocaleString()} matching datasets.</span>
+        ${remaining > 0
+          ? `<button type="button" class="search-more" data-search-more>Show next ${Math.min(DATASET_SEARCH_BATCH, remaining)}</button>`
+          : '<span class="search-complete">All matches shown</span>'}
+      </div>
+    `;
+
+    els.datasetSearchResults.innerHTML = resultsHtml + footerHtml;
   }
 
   function updateSelectedDataset() {
@@ -1703,6 +1757,8 @@
     els.archetype.value = "";
     els.datasetSearch.value = "";
     els.datasetSearchResults.innerHTML = "";
+    state.datasetSearchMatches = [];
+    state.datasetSearchVisible = 0;
     state.selectedDataset = null;
     state.lastAssessment = null;
     updateSelectedDataset();
@@ -1785,6 +1841,12 @@
   });
 
   els.datasetSearchResults.addEventListener("click", event => {
+    const moreButton = event.target.closest("[data-search-more]");
+    if (moreButton) {
+      renderDatasetSearch(els.datasetSearch.value, true);
+      return;
+    }
+
     const button = event.target.closest("[data-row-index]");
     if (button) selectDataset(button.dataset.rowIndex);
   });
