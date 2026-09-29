@@ -4,7 +4,7 @@ Browser-only screening tool for assessing how well an LCA dataset represents a r
 
 ## Current version
 
-**v0.3.1**
+**v0.3.2**
 
 The first version provides:
 
@@ -18,11 +18,23 @@ The first version provides:
 - hard-fail compatibility rules that can override the qualitative verdict without hiding the numerical score;
 - evidence panel showing the Ecoinvent fields and matched concepts behind each criterion;
 - side-by-side comparison of the selected dataset and the strongest valid alternatives;
-- missing-information analysis that suggests which input details would improve assessment reliability;
+- input-quality analysis that suggests how the process description can be made more discriminating;
 - selection-robustness indicator;
 - pre-filled expert-review email through the user's local email client;
 - responsive layout for desktop and mobile;
 - static deployment through GitHub Pages.
+
+## Required assessment inputs
+
+All process-assessment inputs are mandatory before evaluation can run:
+
+- process description;
+- process archetype;
+- geography;
+- reference unit;
+- dataset purpose.
+
+Dataset purpose must be explicitly selected by the user. Automatic purpose inference is not used for the assessment because dataset role can trigger critical compatibility rules.
 
 ## Scoring model
 
