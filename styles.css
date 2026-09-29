@@ -1111,3 +1111,55 @@ footer p {
   font-size: 0.7rem;
   font-weight: 800;
 }
+
+
+.result-guide {
+  margin: -8px 0 24px;
+  padding: 15px 17px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fbfcfc;
+}
+
+.result-guide-title {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.info-dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.75rem;
+  font-weight: 850;
+  font-style: normal;
+}
+
+.result-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 20px;
+}
+
+.result-guide-grid p {
+  margin: 0;
+  color: #53636a;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.result-guide-grid p strong {
+  color: var(--text);
+}
+
+@media (max-width: 820px) {
+  .result-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
