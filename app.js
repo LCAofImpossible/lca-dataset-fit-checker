@@ -326,6 +326,306 @@
     return [...new Set(queryTokens || [])].filter(token => target.has(token)).slice(0, limit);
   }
 
+  function getRegionDisplayNames() {
+    if (regionDisplayNamesCache !== null) return regionDisplayNamesCache;
+    try {
+      regionDisplayNamesCache = new Intl.DisplayNames(["en"], { type: "region" });
+    } catch (error) {
+      regionDisplayNamesCache = false;
+    }
+    return regionDisplayNamesCache;
+  }
+
+  function displayCountryName(code) {
+    const displayNames = getRegionDisplayNames();
+    if (!displayNames) return code;
+    const name = displayNames.of(code);
+    return name && name !== code ? name : code;
+  }
+
+  function getCountryLexicon() {
+    if (countryLexiconCache) return countryLexiconCache;
+
+    const entries = [];
+    for (const code of ISO_ALPHA2_CODES) {
+      const name = displayCountryName(code);
+      if (name && name !== code) {
+        entries.push({ phrase: canonicalizeText(name), code, label: name });
+      }
+    }
+
+    for (const [alias, code] of Object.entries(COUNTRY_NAME_ALIASES)) {
+      entries.push({ phrase: canonicalizeText(alias), code, label: displayCountryName(code) });
+    }
+
+    const seen = new Set();
+    countryLexiconCache = entries
+      .filter(entry => entry.phrase)
+      .filter(entry => {
+        const key = `${entry.phrase}|${entry.code}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => b.phrase.length - a.phrase.length);
+
+    return countryLexiconCache;
+  }
+
+  function countryCodeFromName(value) {
+    const canonical = canonicalizeText(value);
+    if (!canonical) return "";
+    const match = getCountryLexicon().find(entry => entry.phrase === canonical);
+    return match ? match.code : "";
+  }
+
+  function phraseInCanonicalText(text, phrase) {
+    return ` ${text} `.includes(` ${phrase} `);
+  }
+
+  function geographyDisplayLabel(value) {
+    const raw = cleanText(value);
+    if (!raw) return "";
+
+    const normalized = normalizeGeo(raw);
+    if (/^[A-Z]{2}$/.test(normalized)) {
+      return `${raw} - ${displayCountryName(normalized)}`;
+    }
+
+    const labels = {
+      GLO: "Global",
+      ROW: "Rest of World",
+      RER: "Europe",
+      RERWCH: "Europe without Switzerland"
+    };
+
+    return labels[normalized] ? `${raw} - ${labels[normalized]}` : raw;
+  }
+
+  function setGeographyStatus(text, kind = "neutral", showConfirm = false) {
+    els.geographyDetection.className = `geo-detection ${kind}`;
+    els.geographyDetectionText.textContent = text;
+    els.confirmGeographyBtn.classList.toggle("hidden", !showConfirm);
+  }
+
+  function resetStructuredSelectors(message = "Load database first...") {
+    state.units = [];
+    state.geographies = [];
+    state.geographyConfirmed = false;
+    state.geographySource = "";
+
+    els.processUnit.innerHTML = `<option value="">${escapeHtml(message)}</option>`;
+    els.processUnit.disabled = true;
+
+    els.processGeography.innerHTML = `<option value="">${escapeHtml(message)}</option>`;
+    els.processGeography.disabled = true;
+
+    setGeographyStatus("Geography will be detected from the process description and must be confirmed before assessment.", "neutral", false);
+  }
+
+  function populateReferenceUnitOptions() {
+    const units = [...new Set(state.rows.map(row => cleanText(row.unit)).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+    state.units = units;
+    els.processUnit.innerHTML = [
+      '<option value="">Select reference unit...</option>',
+      ...units.map(unit => `<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`)
+    ].join("");
+    els.processUnit.disabled = units.length === 0;
+  }
+
+  function populateGeographyOptions() {
+    const geographies = [...new Set(state.rows.map(row => cleanText(row.geography)).filter(Boolean))]
+      .sort((a, b) => geographyDisplayLabel(a).localeCompare(geographyDisplayLabel(b), undefined, { sensitivity: "base" }));
+
+    state.geographies = geographies;
+    els.processGeography.innerHTML = [
+      '<option value="">Select or confirm geography...</option>',
+      ...geographies.map(geo => `<option value="${escapeHtml(geo)}">${escapeHtml(geographyDisplayLabel(geo))}</option>`)
+    ].join("");
+    els.processGeography.disabled = geographies.length === 0;
+  }
+
+  function findAvailableGeography(target) {
+    const normalizedTarget = normalizeGeo(target);
+    return state.geographies.find(geo => normalizeGeo(geo) === normalizedTarget) || "";
+  }
+
+  function detectGeographyFromDescription(description) {
+    const canonical = canonicalizeText(description);
+    if (!canonical) return { kind: "none" };
+
+    const countryMatches = new Map();
+    for (const entry of getCountryLexicon()) {
+      if (phraseInCanonicalText(canonical, entry.phrase)) {
+        countryMatches.set(entry.code, entry.label);
+      }
+    }
+
+    if (countryMatches.size === 1) {
+      const [code, label] = [...countryMatches.entries()][0];
+      return { kind: "single", code, label };
+    }
+
+    if (countryMatches.size > 1) {
+      return {
+        kind: "multiple",
+        matches: [...countryMatches.entries()].map(([code, label]) => ({ code, label }))
+      };
+    }
+
+    const explicitRegions = [
+      { phrase: "europe without switzerland", code: "RERWCH", label: "Europe without Switzerland" },
+      { phrase: "rest of world", code: "ROW", label: "Rest of World" },
+      { phrase: "worldwide", code: "GLO", label: "Global" },
+      { phrase: "global", code: "GLO", label: "Global" }
+    ];
+
+    for (const region of explicitRegions) {
+      if (phraseInCanonicalText(canonical, region.phrase)) {
+        return { kind: "single", code: region.code, label: region.label };
+      }
+    }
+
+    const ambiguousRegions = [
+      ["european union", "European Union"],
+      ["eu27", "EU27"],
+      ["european", "Europe"],
+      ["europe", "Europe"],
+      ["asia", "Asia"],
+      ["africa", "Africa"],
+      ["north america", "North America"],
+      ["south america", "South America"],
+      ["middle east", "Middle East"],
+      ["oceania", "Oceania"]
+    ];
+
+    for (const [phrase, label] of ambiguousRegions) {
+      if (phraseInCanonicalText(canonical, phrase)) {
+        return { kind: "region", label };
+      }
+    }
+
+    return { kind: "none" };
+  }
+
+  function applyGeographyDetection() {
+    if (!state.geographies.length) {
+      state.geographyConfirmed = false;
+      setGeographyStatus("Load a database before confirming geography.", "neutral", false);
+      updateEvaluateState();
+      return;
+    }
+
+    const description = cleanText(els.processDescription.value);
+    if (!description) {
+      if (state.geographySource !== "manual") {
+        els.processGeography.value = "";
+        state.geographyConfirmed = false;
+        state.geographySource = "";
+      }
+      setGeographyStatus("Add the process geography to the English description, or select it manually.", "neutral", false);
+      updateEvaluateState();
+      return;
+    }
+
+    const detected = detectGeographyFromDescription(description);
+
+    if (detected.kind === "single") {
+      const available = findAvailableGeography(detected.code);
+
+      if (!available) {
+        if (state.geographySource !== "manual") {
+          els.processGeography.value = "";
+          state.geographyConfirmed = false;
+          state.geographySource = "";
+        }
+        setGeographyStatus(
+          `${detected.label} was detected, but no directly matching geography exists in the loaded catalogue. Select the intended proxy manually.`,
+          "warning",
+          Boolean(els.processGeography.value)
+        );
+        updateEvaluateState();
+        return;
+      }
+
+      const sameAsCurrent = normalizeGeo(els.processGeography.value) === normalizeGeo(available);
+      if (sameAsCurrent && state.geographyConfirmed) {
+        setGeographyStatus(
+          `${geographyDisplayLabel(available)} confirmed. The same geography is still detected in the description.`,
+          "confirmed",
+          false
+        );
+        updateEvaluateState();
+        return;
+      }
+
+      els.processGeography.value = available;
+      state.geographyConfirmed = false;
+      state.geographySource = "detected";
+      setGeographyStatus(
+        `Detected from description: ${geographyDisplayLabel(available)}. Confirm this geography or select another one.`,
+        "detected",
+        true
+      );
+      updateEvaluateState();
+      return;
+    }
+
+    if (detected.kind === "multiple") {
+      state.geographyConfirmed = false;
+      state.geographySource = "review";
+      const labels = detected.matches.map(match => match.label).join(", ");
+      setGeographyStatus(
+        `Multiple geographies detected: ${labels}. Select the geography of the process and confirm it.`,
+        "warning",
+        Boolean(els.processGeography.value)
+      );
+      updateEvaluateState();
+      return;
+    }
+
+    if (detected.kind === "region") {
+      state.geographyConfirmed = false;
+      state.geographySource = "review";
+      setGeographyStatus(
+        `${detected.label} was detected, but this does not map unambiguously to one Ecoinvent geography. Select the intended geography and confirm it.`,
+        "warning",
+        Boolean(els.processGeography.value)
+      );
+      updateEvaluateState();
+      return;
+    }
+
+    if (state.geographySource === "manual" && state.geographyConfirmed && els.processGeography.value) {
+      setGeographyStatus(
+        `${geographyDisplayLabel(els.processGeography.value)} manually selected and confirmed.`,
+        "confirmed",
+        false
+      );
+    } else {
+      state.geographyConfirmed = false;
+      if (state.geographySource === "detected") els.processGeography.value = "";
+      state.geographySource = "";
+      setGeographyStatus("No geography detected in the description. Select the process geography manually.", "warning", false);
+    }
+
+    updateEvaluateState();
+  }
+
+  function confirmGeography() {
+    if (!els.processGeography.value) return;
+    state.geographyConfirmed = true;
+    if (state.geographySource !== "manual") state.geographySource = "detected-confirmed";
+    setGeographyStatus(
+      `${geographyDisplayLabel(els.processGeography.value)} confirmed for this assessment.`,
+      "confirmed",
+      false
+    );
+    updateEvaluateState();
+  }
+
   function detectColumn(headers, aliases) {
     const normalizedAliases = aliases.map(normalizeHeader);
     let bestIndex = -1;
