@@ -149,8 +149,21 @@
         </div>
         <div class="score-card">
           <span class="score-label">Selection robustness</span>
-          <strong id="robustnessScore">—</strong>
+          <strong id="robustnessScore">-</strong>
           <span id="robustnessLabel" class="score-note">Compared with best candidate</span>
+        </div>
+      </div>
+
+      <div class="result-guide" aria-label="How to read these results">
+        <div class="result-guide-title">
+          <span class="info-dot" aria-hidden="true">i</span>
+          <strong>How to read these results</strong>
+        </div>
+        <div class="result-guide-grid">
+          <p><strong>Dataset Fit Score</strong> - Measures how well the selected dataset represents the real process described. Higher is better.</p>
+          <p><strong>Assessment Confidence</strong> - Indicates how reliable the assessment is based on the completeness of the process description and the Ecoinvent metadata available.</p>
+          <p><strong>Selection Robustness</strong> - Shows the gap from the strongest valid alternative. A value close to 0 means the selection is robust; a negative value means a stronger alternative exists.</p>
+          <p><strong>Overall label</strong> - Summarizes the Fit Score, unless a critical compatibility rule overrides it.</p>
         </div>
       </div>
 
@@ -243,7 +256,7 @@
 
   <footer>
     <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
-    <p>Version <span id="appVersion">0.3.0</span></p>
+    <p>Version <span id="appVersion">0.3.1</span></p>
   </footer>
 
   <script src="app.js"></script>
