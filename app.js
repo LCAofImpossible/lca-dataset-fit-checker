@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.3.2";
+  const APP_VERSION = "0.3.3";
 
   const state = {
     workbook: null,
@@ -827,7 +827,7 @@
     }
 
     if (input._tokens.length >= 3 && assessment.components.process <= 20 && assessment.components.product <= 20) {
-      hard.push("Both process and product/material similarity are very low. The dataset is likely modelling a different physical system.");
+      warnings.push("Both process and product/material semantic similarity are very low. Review the dataset carefully, but this condition alone does not block the assessment.");
     }
 
     if (input.geography && assessment.components.geography < 50) {
