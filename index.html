@@ -59,13 +59,14 @@
       <div class="form-grid">
         <label class="field span-2">
           <span>Process description <em>required</em></span>
-          <textarea id="processDescription" rows="4" placeholder="Example: hot extrusion of an aluminium profile manufactured in Italy"></textarea>
+          <textarea id="processDescription" rows="4" placeholder="Example: hot extrusion of an aluminium profile manufactured in Italy" required></textarea>
           <small>Use the physical process, material, product form and relevant technology. Italian and English terms are supported.</small>
         </label>
 
         <label class="field">
-          <span>Process archetype</span>
-          <select id="archetype">
+          <span>Process archetype <em>required</em></span>
+          <select id="archetype" required>
+            <option value="" selected disabled>Select process archetype...</option>
             <option value="manufacturing">Manufacturing / processing</option>
             <option value="material">Material production</option>
             <option value="energy">Energy</option>
@@ -79,19 +80,19 @@
         </label>
 
         <label class="field">
-          <span>Geography</span>
-          <input id="processGeography" type="text" placeholder="IT, RER, DE, GLO..." />
+          <span>Geography <em>required</em></span>
+          <input id="processGeography" type="text" placeholder="IT, RER, DE, GLO..." required />
         </label>
 
         <label class="field">
-          <span>Reference unit</span>
-          <input id="processUnit" type="text" placeholder="kg, kWh, tkm, m3..." />
+          <span>Reference unit <em>required</em></span>
+          <input id="processUnit" type="text" placeholder="kg, kWh, tkm, m3..." required />
         </label>
 
         <label class="field">
-          <span>Dataset purpose</span>
-          <select id="datasetPurpose">
-            <option value="auto">Auto infer from description</option>
+          <span>Dataset purpose <em>required</em></span>
+          <select id="datasetPurpose" required>
+            <option value="" selected disabled>Select dataset purpose...</option>
             <option value="transforming">Physical production / transformation</option>
             <option value="market">Supply / market mix</option>
             <option value="production_mix">Production mix</option>
@@ -99,8 +100,10 @@
             <option value="transport">Transport service</option>
             <option value="energy">Energy supply</option>
           </select>
-          <small>Use this when you know whether the model needs a transforming activity or a supply/market dataset.</small>
+          <small>Select the intended modelling role explicitly so that dataset-role compatibility can be checked.</small>
         </label>
+
+        <p class="form-requirement-note span-2">All fields are required to ensure a reliable and reproducible dataset assessment.</p>
       </div>
     </section>
 
@@ -256,7 +259,7 @@
 
   <footer>
     <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
-    <p>Version <span id="appVersion">0.3.1</span></p>
+    <p>Version <span id="appVersion">0.3.2</span></p>
   </footer>
 
   <script src="app.js"></script>
