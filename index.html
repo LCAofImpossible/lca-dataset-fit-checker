@@ -82,14 +82,22 @@
 
         <label class="field">
           <span>Geography <em>required</em></span>
-          <input id="processGeography" type="text" placeholder="IT, RER, DE, GLO..." required />
-          <small>Represents where the real process occurs. A wrong value can make an unsuitable geography appear preferable, or penalize a valid regional proxy.</small>
+          <select id="processGeography" required disabled>
+            <option value="">Load database first...</option>
+          </select>
+          <div id="geographyDetection" class="geo-detection neutral">
+            <span id="geographyDetectionText">Geography will be detected from the process description and must be confirmed before assessment.</span>
+            <button id="confirmGeographyBtn" type="button" class="mini-action hidden">Confirm</button>
+          </div>
+          <small>The tool detects a country from the English description when possible. Confirm the detected value or select the correct Ecoinvent geography manually.</small>
         </label>
 
         <label class="field">
           <span>Reference unit <em>required</em></span>
-          <input id="processUnit" type="text" placeholder="kg, kWh, tkm, m3..." required />
-          <small>Must represent the functional reference used for modelling. An incompatible unit can trigger a Critical mismatch.</small>
+          <select id="processUnit" required disabled>
+            <option value="">Load database first...</option>
+          </select>
+          <small>Choose from the units actually available in the loaded Ecoinvent catalogue. An incompatible unit can trigger a Critical mismatch.</small>
         </label>
 
         <label class="field">
@@ -117,11 +125,11 @@
             </div>
             <div>
               <strong>Geography</strong>
-              <p>Defines the target location against which Ecoinvent geography is assessed. Enter the geography of the real process, not the geography of the dataset you want to test.</p>
+              <p>Defines the target location against which Ecoinvent geography is assessed. The tool first tries to detect it from the process description. You must then confirm the detected value or select another geography from the catalogue.</p>
             </div>
             <div>
               <strong>Reference unit</strong>
-              <p>Checks whether the dataset can represent the same quantified function. Enter the unit required by your model. A categorical incompatibility, such as kg versus kWh, can block the assessment.</p>
+              <p>Checks whether the dataset can represent the same quantified function. The selection is restricted to units found in the loaded catalogue, eliminating spelling variants. A categorical incompatibility, such as kg versus kWh, can block the assessment.</p>
             </div>
             <div>
               <strong>Dataset purpose</strong>
@@ -284,7 +292,7 @@
 
   <footer>
     <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
-    <p>Version <span id="appVersion">0.3.3</span></p>
+    <p>Version <span id="appVersion">0.3.4</span></p>
   </footer>
 
   <script src="app.js"></script>
