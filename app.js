@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.3.1";
+  const APP_VERSION = "0.3.2";
 
   const state = {
     workbook: null,
@@ -666,15 +666,8 @@
   }
 
   function expectedDatasetRole(input) {
-    if (input.purpose && input.purpose !== "auto") {
-      if (["waste", "transport", "energy"].includes(input.purpose)) return null;
-      return input.purpose;
-    }
-
-    const text = canonicalizeText(input.description);
-    if (text.includes("market for") || text.includes("market mix") || text.includes("supply mix") || text.includes("fornitura") || text.includes("acquisto")) return "market";
-    if (text.includes("production mix") || text.includes("mix di produzione")) return "production_mix";
-    return null;
+    if (!input.purpose || ["waste", "transport", "energy"].includes(input.purpose)) return null;
+    return input.purpose;
   }
 
   function roleScore(input, row) {
@@ -740,7 +733,7 @@
     score += Math.min(25, wordCount * 3);
     if (input.geography) score += 10;
     if (input.unit) score += 7;
-    if (input.purpose && input.purpose !== "auto") score += 8;
+    if (input.purpose) score += 8;
 
     if (state.mapping.activity >= 0) score += 12;
     if (state.mapping.geography >= 0) score += 4;
@@ -780,7 +773,6 @@
 
   function purposeLabel(purpose) {
     return {
-      auto: "auto inferred",
       transforming: "physical production / transformation",
       market: "supply / market mix",
       production_mix: "production mix",
@@ -1023,27 +1015,6 @@
       });
     }
 
-    if (!input.geography) {
-      items.push({
-        title: "Geography not specified",
-        detail: "Add the actual production/use geography when geographic representativeness matters."
-      });
-    }
-
-    if (!input.unit) {
-      items.push({
-        title: "Reference unit not specified",
-        detail: "Add kg, kWh, tkm, m³ or the relevant unit to allow a compatibility check."
-      });
-    }
-
-    if (input.purpose === "auto") {
-      items.push({
-        title: "Dataset purpose is being inferred",
-        detail: "If known, explicitly choose transforming activity, market mix, production mix, waste, transport or energy supply."
-      });
-    }
-
     return items.slice(0, 6);
   }
 
@@ -1281,7 +1252,15 @@
 
   function evaluate() {
     const input = assessmentInput();
-    if (!input.description || !state.selectedDataset || !state.rows.length) return;
+    if (
+      !input.description ||
+      !input.archetype ||
+      !input.geography ||
+      !input.unit ||
+      !input.purpose ||
+      !state.selectedDataset ||
+      !state.rows.length
+    ) return;
 
     els.evaluateBtn.disabled = true;
     els.evaluateBtn.textContent = "Evaluating…";
@@ -1333,7 +1312,11 @@
     const ready = Boolean(
       state.rows.length &&
       state.selectedDataset &&
-      cleanText(els.processDescription.value)
+      cleanText(els.processDescription.value) &&
+      cleanText(els.archetype.value) &&
+      cleanText(els.processGeography.value) &&
+      cleanText(els.processUnit.value) &&
+      cleanText(els.datasetPurpose.value)
     );
     els.evaluateBtn.disabled = !ready;
   }
@@ -1350,8 +1333,8 @@
     els.processDescription.value = "";
     els.processGeography.value = "";
     els.processUnit.value = "";
-    els.datasetPurpose.value = "auto";
-    els.archetype.value = "manufacturing";
+    els.datasetPurpose.value = "";
+    els.archetype.value = "";
     els.datasetSearch.value = "";
     els.datasetSearchResults.innerHTML = "";
     state.selectedDataset = null;
@@ -1393,7 +1376,7 @@
       `Process archetype: ${input.archetype}`,
       `Requested geography: ${input.geography || "not specified"}`,
       `Requested unit: ${input.unit || "not specified"}`,
-      `Dataset purpose: ${input.purpose || "auto"}`,
+      `Dataset purpose: ${input.purpose || "not specified"}`,
       "",
       `Selected dataset: ${selected.activity || "not stated"}`,
       `Product information: ${selected.productInfo ? selected.productInfo.slice(0, 500) : (selected.product || "not stated")}`,
@@ -1447,6 +1430,10 @@
 
   els.sheetSelect.addEventListener("change", event => parseSheet(event.target.value));
   els.processDescription.addEventListener("input", updateEvaluateState);
+  els.processGeography.addEventListener("input", updateEvaluateState);
+  els.processUnit.addEventListener("input", updateEvaluateState);
+  els.archetype.addEventListener("change", updateEvaluateState);
+  els.datasetPurpose.addEventListener("change", updateEvaluateState);
   els.evaluateBtn.addEventListener("click", evaluate);
   els.resetBtn.addEventListener("click", resetAnalysis);
   els.reviewBtn.addEventListener("click", requestReview);
