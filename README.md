@@ -4,7 +4,7 @@ Browser-only screening tool for assessing how well an LCA dataset represents a r
 
 ## Current version
 
-**v0.3.0**
+**v0.3.1**
 
 The first version provides:
 
@@ -56,9 +56,9 @@ A hard fail does not erase or artificially reduce the numerical score. Instead, 
 
 The main result view remains intentionally compact. Additional analysis is available through three expandable sections:
 
-1. **Why this score?** — evidence and matched concepts for each criterion;
-2. **Compare alternatives** — selected dataset versus the strongest valid catalogue candidates;
-3. **Input quality** — missing information and suggested details that would improve confidence.
+1. **Why this score?** - evidence and matched concepts for each criterion;
+2. **Compare alternatives** - selected dataset versus the strongest valid catalogue candidates;
+3. **Input quality** - missing information and suggested details that would improve confidence.
 
 Weights change according to the selected process archetype (manufacturing, material production, energy, transport, waste treatment, chemical, agriculture, construction or service).
 
