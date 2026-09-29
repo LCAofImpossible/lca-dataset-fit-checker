@@ -4,7 +4,7 @@ Browser-only screening tool for assessing how well an LCA dataset represents a r
 
 ## Current version
 
-**v0.3.2**
+**v0.3.3**
 
 The first version provides:
 
@@ -34,7 +34,16 @@ All process-assessment inputs are mandatory before evaluation can run:
 - reference unit;
 - dataset purpose.
 
+Process descriptions should be written in English so that semantic matching is performed against the English Ecoinvent catalogue without relying on an extensive bilingual dictionary.
+
 Dataset purpose must be explicitly selected by the user. Automatic purpose inference is not used for the assessment because dataset role can trigger critical compatibility rules.
+
+The interface explains how each input affects the result:
+
+- process archetype changes the weighting of the scoring criteria;
+- geography controls geographic representativeness and candidate ranking;
+- reference unit checks functional compatibility and can trigger a critical mismatch when categorically incompatible;
+- dataset purpose defines the required modelling role and can trigger a critical mismatch when it conflicts with the selected dataset role.
 
 ## Scoring model
 
@@ -60,7 +69,9 @@ Examples of blocking conditions include:
 - a production-mix request paired with another activity role;
 - waste, transport or energy purpose paired with a clearly different activity family;
 - an explicit reference-unit incompatibility;
-- simultaneously very low process and product/material similarity.
+- structural incompatibilities such as dataset role, activity family or reference unit.
+
+Very low process and product/material semantic similarity now generates a warning rather than a hard fail. This avoids blocking valid datasets solely because of lexical or terminology differences.
 
 A hard fail does not erase or artificially reduce the numerical score. Instead, the score remains visible for transparency while the qualitative verdict is changed to **Critical mismatch**.
 
