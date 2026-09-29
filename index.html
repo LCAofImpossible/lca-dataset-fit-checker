@@ -151,6 +151,7 @@
       <label class="field">
         <span>Dataset search</span>
         <input id="datasetSearch" type="search" placeholder="Type activity, material, sector, CPC/ISIC term..." disabled />
+        <small>Searches the full loaded catalogue. Results are ranked and shown progressively so that no matching dataset is excluded by a fixed result limit.</small>
       </label>
       <div id="datasetSearchResults" class="search-results" aria-live="polite"></div>
       <div id="selectedDataset" class="selected-dataset empty">No dataset selected.</div>
@@ -292,7 +293,7 @@
 
   <footer>
     <p><strong>Method note:</strong> the score is a reproducible screening indicator, not an ISO-compliance determination or a substitute for professional LCA judgement.</p>
-    <p>Version <span id="appVersion">0.3.4</span></p>
+    <p>Version <span id="appVersion">0.3.5</span></p>
   </footer>
 
   <script src="app.js"></script>
