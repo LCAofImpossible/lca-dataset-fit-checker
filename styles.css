@@ -1099,3 +1099,15 @@ footer p {
     padding: 14px;
   }
 }
+
+
+.candidate .blocked-flag {
+  display: inline-flex;
+  margin-left: 5px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
