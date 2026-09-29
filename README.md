@@ -4,7 +4,7 @@ Browser-only screening tool for assessing how well an LCA dataset represents a r
 
 ## Current version
 
-**v0.3.3**
+**v0.3.4**
 
 The first version provides:
 
@@ -30,8 +30,8 @@ All process-assessment inputs are mandatory before evaluation can run:
 
 - process description;
 - process archetype;
-- geography;
-- reference unit;
+- geography, automatically detected from the English process description when possible and explicitly confirmed by the user;
+- reference unit, selected from the unique units present in the loaded catalogue;
 - dataset purpose.
 
 Process descriptions should be written in English so that semantic matching is performed against the English Ecoinvent catalogue without relying on an extensive bilingual dictionary.
@@ -41,8 +41,8 @@ Dataset purpose must be explicitly selected by the user. Automatic purpose infer
 The interface explains how each input affects the result:
 
 - process archetype changes the weighting of the scoring criteria;
-- geography controls geographic representativeness and candidate ranking;
-- reference unit checks functional compatibility and can trigger a critical mismatch when categorically incompatible;
+- geography controls geographic representativeness and candidate ranking. The tool detects a unique country name or a small set of explicit global/regional terms from the description when possible, then requires user confirmation. Ambiguous regions or multiple countries require manual selection;
+- reference unit checks functional compatibility and can trigger a critical mismatch when categorically incompatible. The user cannot type arbitrary unit variants: the selector is populated from the unique values in the loaded Ecoinvent Unit column;
 - dataset purpose defines the required modelling role and can trigger a critical mismatch when it conflicts with the selected dataset role.
 
 ## Scoring model
@@ -120,7 +120,6 @@ For a private repository, GitHub Pages availability depends on the GitHub plan a
 
 Planned improvements after testing with the actual Ecoinvent workbook:
 
-- expand the Italian/English LCA terminology dictionary;
 - improve geography hierarchy and market-region logic;
 - continue refining the distinction between ordinary transforming activities, market activities, market groups and production mixes;
 - validate score thresholds and hard-fail rules on expert-reviewed examples;
