@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.3.0";
+  const APP_VERSION = "0.3.1";
 
   const state = {
     workbook: null,
@@ -1266,7 +1266,7 @@
 
     const best = candidates.find(candidate => !candidate.critical?.hardFail);
     if (!best) {
-      els.robustnessScore.textContent = "—";
+      els.robustnessScore.textContent = "-";
       els.robustnessLabel.textContent = "No valid comparison available";
       return;
     }
@@ -1382,12 +1382,12 @@
     const alternatives = candidates
       .filter(item => selectedKey(item.row) !== selectedKey(selected))
       .slice(0, 3)
-      .map((item, index) => `${index + 1}. ${item.row.activity || item.row.product} — ${item.score}/100`)
+      .map((item, index) => `${index + 1}. ${item.row.activity || item.row.product} - ${item.score}/100`)
       .join("\n");
 
-    const subject = `Dataset review request — ${selected.activity || selected.product || "LCA dataset"}`;
+    const subject = `Dataset review request - ${selected.activity || selected.product || "LCA dataset"}`;
     const body = [
-      "LCA Dataset Fit Checker — expert review request",
+      "LCA Dataset Fit Checker - expert review request",
       "",
       `Process description: ${input.description}`,
       `Process archetype: ${input.archetype}`,
