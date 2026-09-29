@@ -803,11 +803,14 @@
     state.rows = detected.row >= 0 ? buildRows(matrix, detected.row, detected.mapping) : [];
     state.selectedDataset = null;
     state.lastAssessment = null;
+    state.geographyConfirmed = false;
+    state.geographySource = "";
 
     if (state.mapping.activity < 0 && state.mapping.product < 0) {
       setDatabaseStatus("Columns not recognized", "danger");
       els.datasetSearch.disabled = true;
       els.mappingSummary.innerHTML = "<p>No activity/name or reference-product column could be identified automatically in this worksheet.</p>";
+      resetStructuredSelectors("Required columns not available");
       updateSelectedDataset();
       updateEvaluateState();
       return;
@@ -817,6 +820,7 @@
       setDatabaseStatus("No datasets found", "danger");
       els.datasetSearch.disabled = true;
       els.mappingSummary.innerHTML = "<p>The worksheet was read, but no usable dataset rows were found below the detected header.</p>";
+      resetStructuredSelectors("No dataset values available");
       updateSelectedDataset();
       updateEvaluateState();
       return;
@@ -826,8 +830,11 @@
     els.datasetSearch.disabled = false;
     els.datasetSearch.value = "";
     els.datasetSearchResults.innerHTML = "";
+    populateReferenceUnitOptions();
+    populateGeographyOptions();
     renderMapping();
     updateSelectedDataset();
+    applyGeographyDetection();
     updateEvaluateState();
   }
 
@@ -846,6 +853,7 @@
       setDatabaseStatus("Workbook error", "danger");
       els.mappingSummary.innerHTML = "<p>The file could not be parsed. Confirm that it is a valid Excel or CSV export.</p>";
       els.datasetSearch.disabled = true;
+      resetStructuredSelectors("Workbook unavailable");
       updateEvaluateState();
     }
   }
@@ -917,6 +925,9 @@
     if (!raw) return "";
     const canonical = canonicalizeText(raw);
     if (GEO_ALIASES[canonical]) return GEO_ALIASES[canonical];
+
+    const countryCode = countryCodeFromName(raw);
+    if (countryCode) return countryCode;
 
     const upper = raw.toUpperCase().replace(/\s+/g, " ").trim();
     if (upper === "ROW") return "ROW";
@@ -1608,6 +1619,7 @@
       !input.geography ||
       !input.unit ||
       !input.purpose ||
+      !state.geographyConfirmed ||
       !state.selectedDataset ||
       !state.rows.length
     ) return;
@@ -1665,6 +1677,7 @@
       cleanText(els.processDescription.value) &&
       cleanText(els.archetype.value) &&
       cleanText(els.processGeography.value) &&
+      state.geographyConfirmed &&
       cleanText(els.processUnit.value) &&
       cleanText(els.datasetPurpose.value)
     );
@@ -1683,6 +1696,9 @@
     els.processDescription.value = "";
     els.processGeography.value = "";
     els.processUnit.value = "";
+    state.geographyConfirmed = false;
+    state.geographySource = "";
+    setGeographyStatus("Add the process geography to the English description, or select it manually.", "neutral", false);
     els.datasetPurpose.value = "";
     els.archetype.value = "";
     els.datasetSearch.value = "";
@@ -1779,9 +1795,28 @@
   });
 
   els.sheetSelect.addEventListener("change", event => parseSheet(event.target.value));
-  els.processDescription.addEventListener("input", updateEvaluateState);
-  els.processGeography.addEventListener("input", updateEvaluateState);
-  els.processUnit.addEventListener("input", updateEvaluateState);
+  els.processDescription.addEventListener("input", () => {
+    applyGeographyDetection();
+    updateEvaluateState();
+  });
+  els.processGeography.addEventListener("change", () => {
+    if (els.processGeography.value) {
+      state.geographyConfirmed = true;
+      state.geographySource = "manual";
+      setGeographyStatus(
+        `${geographyDisplayLabel(els.processGeography.value)} manually selected and confirmed.`,
+        "confirmed",
+        false
+      );
+    } else {
+      state.geographyConfirmed = false;
+      state.geographySource = "";
+      setGeographyStatus("Select the process geography.", "warning", false);
+    }
+    updateEvaluateState();
+  });
+  els.confirmGeographyBtn.addEventListener("click", confirmGeography);
+  els.processUnit.addEventListener("change", updateEvaluateState);
   els.archetype.addEventListener("change", updateEvaluateState);
   els.datasetPurpose.addEventListener("change", updateEvaluateState);
   els.evaluateBtn.addEventListener("click", evaluate);
