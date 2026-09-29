@@ -4,13 +4,13 @@ Browser-only screening tool for assessing how well an LCA dataset represents a r
 
 ## Current version
 
-**v0.3.4**
+**v0.3.5**
 
 The first version provides:
 
 - local reading of Ecoinvent Excel/CSV exports;
 - calibration for the supplied Ecoinvent 3.11 catalogue structure (Activity Name, Geography, Special Activity Type, Sector, ISIC, CPC, HS2017, Unit and Product Information);
-- dataset search and manual selection;
+- full-catalogue dataset search and manual selection, with exact/direct activity-name matches prioritized and progressive display of all matching results;
 - reproducible 0–100 fit scoring;
 - process-archetype-specific weighting;
 - separate assessment confidence score;
@@ -44,6 +44,14 @@ The interface explains how each input affects the result:
 - geography controls geographic representativeness and candidate ranking. The tool detects a unique country name or a small set of explicit global/regional terms from the description when possible, then requires user confirmation. Ambiguous regions or multiple countries require manual selection;
 - reference unit checks functional compatibility and can trigger a critical mismatch when categorically incompatible. The user cannot type arbitrary unit variants: the selector is populated from the unique values in the loaded Ecoinvent Unit column;
 - dataset purpose defines the required modelling role and can trigger a critical mismatch when it conflicts with the selected dataset role.
+
+## Dataset search behavior
+
+Dataset search evaluates the full loaded catalogue. Results are ranked, but matching datasets are no longer truncated to a fixed top-30 list.
+
+The interface initially shows the first 50 ranked matches and provides a **Show next** control until all matching datasets are visible. Exact activity-name matches, exact product matches and direct activity-name matches are prioritized ahead of broader metadata and semantic matches.
+
+This means a dataset that exists in the loaded catalogue can still be selected even when a broad search returns many plausible candidates.
 
 ## Scoring model
 
