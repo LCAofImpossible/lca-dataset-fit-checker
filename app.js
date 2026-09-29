@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const APP_VERSION = "0.2.0";
+  const APP_VERSION = "0.3.0";
 
   const state = {
     workbook: null,
@@ -31,6 +31,17 @@
     resetBtn: document.getElementById("resetBtn"),
     resultsPanel: document.getElementById("resultsPanel"),
     fitVerdict: document.getElementById("fitVerdict"),
+    criticalCheck: document.getElementById("criticalCheck"),
+    criticalTitle: document.getElementById("criticalTitle"),
+    criticalSummary: document.getElementById("criticalSummary"),
+    criticalIssues: document.getElementById("criticalIssues"),
+    evidenceSection: document.getElementById("evidenceSection"),
+    evidencePanel: document.getElementById("evidencePanel"),
+    compareSection: document.getElementById("compareSection"),
+    comparisonTable: document.getElementById("comparisonTable"),
+    inputQualitySection: document.getElementById("inputQualitySection"),
+    inputQualityBadge: document.getElementById("inputQualityBadge"),
+    missingInfoPanel: document.getElementById("missingInfoPanel"),
     fitScore: document.getElementById("fitScore"),
     fitMeter: document.getElementById("fitMeter"),
     confidenceScore: document.getElementById("confidenceScore"),
@@ -258,6 +269,11 @@
 
   function tokenSimilarity(query, target) {
     return tokenSimilarityFromTokens(tokens(query), tokens(target));
+  }
+
+  function matchedTerms(queryTokens, targetTokens, limit = 8) {
+    const target = new Set(targetTokens || []);
+    return [...new Set(queryTokens || [])].filter(token => target.has(token)).slice(0, limit);
   }
 
   function detectColumn(headers, aliases) {
@@ -752,6 +768,388 @@
     return { text: "Poor fit", kind: "danger" };
   }
 
+
+  function roleLabel(role) {
+    return {
+      transforming: "transforming activity",
+      market: "market activity",
+      market_group: "market group",
+      production_mix: "production mix"
+    }[role] || role || "not identified";
+  }
+
+  function purposeLabel(purpose) {
+    return {
+      auto: "auto inferred",
+      transforming: "physical production / transformation",
+      market: "supply / market mix",
+      production_mix: "production mix",
+      waste: "waste treatment",
+      transport: "transport service",
+      energy: "energy supply"
+    }[purpose] || purpose || "not specified";
+  }
+
+  function criticalCompatibility(input, assessment) {
+    const row = assessment.row;
+    const actualRole = datasetRole(row);
+    const expectedRole = expectedDatasetRole(input);
+    const family = datasetFamily(row);
+    const hard = [];
+    const warnings = [];
+
+    if (input.purpose === "transforming") {
+      if (actualRole === "market" || actualRole === "market_group") {
+        hard.push(`A ${roleLabel(actualRole)} was selected, but the requested purpose is a physical production/transformation process.`);
+      } else if (actualRole === "production_mix") {
+        warnings.push("A production mix is not the same modelling role as a single transforming activity.");
+      }
+    }
+
+    if (input.purpose === "market") {
+      if (actualRole === "transforming") {
+        hard.push("A transforming activity was selected, but the requested purpose is a supply/market mix.");
+      } else if (actualRole === "production_mix") {
+        warnings.push("A production mix may not represent the requested market/supply mix.");
+      }
+    }
+
+    if (input.purpose === "production_mix" && actualRole !== "production_mix") {
+      hard.push(`The requested purpose is a production mix, but the selected dataset is a ${roleLabel(actualRole)}.`);
+    }
+
+    if (input.purpose === "waste" && family !== "waste") {
+      hard.push("The requested purpose is waste treatment, but the selected activity is not classified as a waste-treatment/recycling process.");
+    }
+
+    if (input.purpose === "transport" && family !== "transport") {
+      hard.push("The requested purpose is transport service, but the selected activity is not classified as transport.");
+    }
+
+    if (input.purpose === "energy" && family !== "energy") {
+      hard.push("The requested purpose is energy supply, but the selected activity is not classified as an energy process.");
+    }
+
+    if (input.unit && assessment.components.unit <= 20) {
+      hard.push(`Reference unit is incompatible: requested "${input.unit}", dataset "${row.unit || "not stated"}".`);
+    }
+
+    if (input._tokens.length >= 3 && assessment.components.process <= 20 && assessment.components.product <= 20) {
+      hard.push("Both process and product/material similarity are very low. The dataset is likely modelling a different physical system.");
+    }
+
+    if (input.geography && assessment.components.geography < 50) {
+      warnings.push(`Geographical fit is weak: requested "${input.geography}", dataset "${row.geography || "not stated"}".`);
+    }
+
+    if (assessment.components.role < 60 && !hard.some(issue => issue.toLowerCase().includes("purpose"))) {
+      warnings.push(`Dataset role may be inconsistent with the intended purpose (dataset type: ${row.specialType || row.type || "not stated"}).`);
+    }
+
+    if (assessment.components.process < 40 && assessment.components.product >= 25) {
+      warnings.push("The material/product may be related, but the represented physical process is weakly aligned.");
+    }
+
+    if (assessment.components.product < 40 && assessment.components.process >= 25) {
+      warnings.push("The process may be related, but product/material evidence is weak.");
+    }
+
+    return {
+      hardFail: hard.length > 0,
+      severity: hard.length ? "danger" : (warnings.length ? "warning" : "good"),
+      hard,
+      warnings,
+      expectedRole,
+      actualRole
+    };
+  }
+
+  function renderCritical(critical) {
+    els.criticalCheck.className = `critical-check ${critical.severity}`;
+    els.criticalCheck.classList.remove("hidden");
+
+    if (critical.hardFail) {
+      els.criticalTitle.textContent = "Critical incompatibility detected";
+      els.criticalSummary.textContent = "The numerical score is retained for transparency, but the dataset should not be accepted until the incompatibility is resolved.";
+    } else if (critical.warnings.length) {
+      els.criticalTitle.textContent = "No blocking issue, but review is recommended";
+      els.criticalSummary.textContent = "The dataset can still be compared normally, but one or more compatibility warnings require professional judgement.";
+    } else {
+      els.criticalTitle.textContent = "No critical incompatibility detected";
+      els.criticalSummary.textContent = "No hard-fail rule was triggered by the information currently available.";
+    }
+
+    const issues = [...critical.hard, ...critical.warnings];
+    els.criticalIssues.innerHTML = issues.map(issue => `<li>${escapeHtml(issue)}</li>`).join("");
+    els.criticalIssues.style.display = issues.length ? "" : "none";
+  }
+
+  function geographyEvidence(input, assessment) {
+    const row = assessment.row;
+    if (!input.geography) return "No target geography was specified; a neutral geography score is used.";
+    if (!row.geography) return "The selected dataset contains no geography value.";
+    if (assessment.components.geography >= 95) return `Requested ${input.geography}; dataset ${row.geography}. Direct or near-direct geographic match.`;
+    if (assessment.components.geography >= 75) return `Requested ${input.geography}; dataset ${row.geography}. Regional proxy considered reasonably representative by the geography rule.`;
+    if (assessment.components.geography >= 50) return `Requested ${input.geography}; dataset ${row.geography}. Broad proxy with reduced representativeness.`;
+    return `Requested ${input.geography}; dataset ${row.geography}. Weak geographic proxy.`;
+  }
+
+  function evidenceItems(input, assessment) {
+    const row = assessment.row;
+    const processMatches = matchedTerms(input._tokens, row._activityTokens);
+    const productMatches = matchedTerms(input._tokens, row._productTokens);
+    const contextMatches = matchedTerms(input._tokens, row._contextTokens);
+
+    return [
+      {
+        key: "process",
+        title: "Process / technology",
+        source: "Activity Name",
+        summary: processMatches.length
+          ? `Matched concepts: ${processMatches.join(", ")}.`
+          : "No strong description concepts matched the Activity Name.",
+        matches: processMatches
+      },
+      {
+        key: "product",
+        title: "Product / material",
+        source: "Product Information + CPC/HS2017",
+        summary: productMatches.length
+          ? `Matched product/material concepts: ${productMatches.join(", ")}.`
+          : "No strong product/material concepts were found in Product Information or product classifications.",
+        matches: productMatches
+      },
+      {
+        key: "context",
+        title: "Sector / classification",
+        source: "Sector + ISIC + CPC",
+        summary: contextMatches.length
+          ? `Matched sector/classification concepts: ${contextMatches.join(", ")}.`
+          : `Sector compatibility also considers the selected "${input.archetype}" archetype.`,
+        matches: contextMatches
+      },
+      {
+        key: "geography",
+        title: "Geography",
+        source: "Geography",
+        summary: geographyEvidence(input, assessment),
+        matches: []
+      },
+      {
+        key: "unit",
+        title: "Reference unit",
+        source: "Unit",
+        summary: input.unit
+          ? `Requested ${input.unit}; dataset ${row.unit || "not stated"}.`
+          : `No target unit specified; dataset unit is ${row.unit || "not stated"}.`,
+        matches: []
+      },
+      {
+        key: "role",
+        title: "Dataset role / purpose",
+        source: "Special Activity Type + Activity Name",
+        summary: `Requested purpose: ${purposeLabel(input.purpose)}. Dataset role: ${roleLabel(datasetRole(row))}.`,
+        matches: []
+      }
+    ];
+  }
+
+  function renderEvidence(input, assessment) {
+    const items = evidenceItems(input, assessment);
+    els.evidencePanel.innerHTML = items.map(item => {
+      const score = assessment.components[item.key];
+      const weight = assessment.weights[item.key] || 0;
+      const tags = item.matches.length
+        ? `<div class="match-tags">${item.matches.map(term => `<span class="match-tag">${escapeHtml(term)}</span>`).join("")}</div>`
+        : "";
+      return `
+        <article class="evidence-card">
+          <div class="evidence-card-head">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span class="evidence-score">${score}/100 · ${weight}%</span>
+          </div>
+          <p>${escapeHtml(item.summary)}</p>
+          <p class="evidence-source">Evidence source: ${escapeHtml(item.source)}</p>
+          ${tags}
+        </article>
+      `;
+    }).join("");
+  }
+
+  function missingInformation(input) {
+    const items = [];
+    const tokenSet = new Set(input._tokens);
+    const archetypeNeedsMaterial = ["manufacturing", "material", "chemical", "construction"].includes(input.archetype);
+    const materialTerms = [
+      "aluminium", "steel", "plastic", "polymer", "copper", "zinc", "iron", "glass",
+      "paper", "cardboard", "wood", "cement", "concrete", "rubber", "textile", "chemical"
+    ];
+    const processTerms = [
+      "extrusion", "moulding", "injection", "rolling", "processing", "production", "manufacturing",
+      "coating", "welding", "turning", "milling", "casting", "recycling", "treatment",
+      "incineration", "landfill", "transport", "lorry", "ship", "rail", "electricity", "heat"
+    ];
+    const formTerms = [
+      "profile", "sheet", "tube", "bar", "cable", "component", "packaging", "bottle",
+      "film", "plate", "powder", "granulate", "pellet", "board"
+    ];
+    const hasAny = terms => terms.some(term => tokenSet.has(term));
+
+    if (input._tokens.length < 5) {
+      items.push({
+        title: "Add a more specific process description",
+        detail: "Include the material, physical operation and the product/form being produced or treated."
+      });
+    }
+
+    if (archetypeNeedsMaterial && !hasAny(materialTerms)) {
+      items.push({
+        title: "Material or product is not explicit",
+        detail: "State the main material/product, for example aluminium, steel, PP, concrete, paper or a specific component."
+      });
+    }
+
+    if (["manufacturing", "waste", "transport", "energy"].includes(input.archetype) && !hasAny(processTerms)) {
+      items.push({
+        title: "Physical operation is not explicit",
+        detail: "Specify the operation, for example extrusion, injection moulding, machining, transport, recycling or electricity supply."
+      });
+    }
+
+    if (input.archetype === "manufacturing" && !hasAny(formTerms) && input._tokens.length < 9) {
+      items.push({
+        title: "Product form could improve discrimination",
+        detail: "When relevant, specify whether the output is a profile, sheet, tube, cable, film, component or another product form."
+      });
+    }
+
+    if (!input.geography) {
+      items.push({
+        title: "Geography not specified",
+        detail: "Add the actual production/use geography when geographic representativeness matters."
+      });
+    }
+
+    if (!input.unit) {
+      items.push({
+        title: "Reference unit not specified",
+        detail: "Add kg, kWh, tkm, m³ or the relevant unit to allow a compatibility check."
+      });
+    }
+
+    if (input.purpose === "auto") {
+      items.push({
+        title: "Dataset purpose is being inferred",
+        detail: "If known, explicitly choose transforming activity, market mix, production mix, waste, transport or energy supply."
+      });
+    }
+
+    return items.slice(0, 6);
+  }
+
+  function renderMissingInformation(items) {
+    const count = items.length;
+    els.inputQualityBadge.className = "section-chip";
+
+    if (!count) {
+      els.inputQualityBadge.textContent = "Complete";
+      els.inputQualityBadge.classList.add("good");
+      els.missingInfoPanel.innerHTML = '<div class="no-missing-info">The current input contains enough structured information for the screening model. Additional technical detail can still improve professional judgement.</div>';
+      return;
+    }
+
+    if (count <= 2) {
+      els.inputQualityBadge.textContent = `${count} suggestion${count === 1 ? "" : "s"}`;
+      els.inputQualityBadge.classList.add("warning");
+    } else {
+      els.inputQualityBadge.textContent = `${count} suggestions`;
+      els.inputQualityBadge.classList.add("danger");
+    }
+
+    els.missingInfoPanel.innerHTML = `
+      <div class="input-quality-summary">
+        <div>
+          <strong>${count === 1 ? "One input improvement identified" : `${count} input improvements identified`}</strong>
+          <p>These are not errors. They indicate information that could make the assessment more discriminating.</p>
+        </div>
+      </div>
+      <div class="missing-info-list">
+        ${items.map((item, index) => `
+          <div class="missing-info-item">
+            <span class="missing-info-number">${index + 1}</span>
+            <div>
+              <strong>${escapeHtml(item.title)}</strong>
+              <p>${escapeHtml(item.detail)}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function renderComparison(input, selectedAssessment, candidates) {
+    const selectedId = selectedKey(selectedAssessment.row);
+    const alternatives = candidates
+      .filter(candidate => selectedKey(candidate.row) !== selectedId)
+      .slice(0, 3);
+    const columns = [selectedAssessment, ...alternatives].map((assessment, index) => {
+      if (!assessment.critical) assessment.critical = criticalCompatibility(input, assessment);
+      return { assessment, selected: index === 0 };
+    });
+
+    const componentKeys = ["process", "product", "context", "geography", "unit", "role"];
+    const header = columns.map(({ assessment, selected }) => {
+      const row = assessment.row;
+      return `
+        <th class="${selected ? "comparison-selected" : ""}">
+          <span class="comparison-dataset-name" title="${escapeHtml(row.activity)}">${escapeHtml(row.activity || "Unnamed dataset")}</span>
+          <span class="comparison-meta">${escapeHtml([row.geography, row.specialType].filter(Boolean).join(" · "))}</span>
+        </th>
+      `;
+    }).join("");
+
+    const scoreRow = columns.map(({ assessment, selected }) =>
+      `<td class="${selected ? "comparison-selected" : ""}"><span class="comparison-score">${assessment.score}/100</span></td>`
+    ).join("");
+
+    const criticalRow = columns.map(({ assessment, selected }) => {
+      const critical = assessment.critical;
+      const text = critical.hardFail ? "Blocked" : (critical.warnings.length ? "Review" : "Clear");
+      return `<td class="${selected ? "comparison-selected" : ""}">${escapeHtml(text)}</td>`;
+    }).join("");
+
+    const componentRows = componentKeys.map(key => `
+      <tr>
+        <td>${escapeHtml(componentLabel(key))}</td>
+        ${columns.map(({ assessment, selected }) =>
+          `<td class="${selected ? "comparison-selected" : ""}">${assessment.components[key]}</td>`
+        ).join("")}
+      </tr>
+    `).join("");
+
+    els.comparisonTable.innerHTML = `
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Criterion</th>
+            ${header}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Fit score</td>
+            ${scoreRow}
+          </tr>
+          <tr>
+            <td>Critical check</td>
+            ${criticalRow}
+          </tr>
+          ${componentRows}
+        </tbody>
+      </table>
+    `;
+  }
+
   function componentLabel(key) {
     return {
       process: "Process / technology",
@@ -818,8 +1216,16 @@
 
   function rankCandidates(input) {
     return state.rows
-      .map(row => scoreDataset(row, input))
-      .sort((a, b) => b.score - a.score)
+      .map(row => {
+        const assessment = scoreDataset(row, input);
+        assessment.critical = criticalCompatibility(input, assessment);
+        return assessment;
+      })
+      .sort((a, b) => {
+        const hardFailDelta = Number(a.critical.hardFail) - Number(b.critical.hardFail);
+        if (hardFailDelta !== 0) return hardFailDelta;
+        return b.score - a.score;
+      })
       .slice(0, 10);
   }
 
@@ -842,26 +1248,35 @@
             <div class="dataset-title">${escapeHtml(label.main)}</div>
             <div class="dataset-meta">${escapeHtml(label.meta || "No additional metadata")}</div>
           </div>
-          <div>${isSelected ? '<span class="selected-flag">SELECTED</span>' : ""}</div>
+          <div>
+            ${isSelected ? '<span class="selected-flag">SELECTED</span>' : ""}
+            ${candidate.critical && candidate.critical.hardFail ? '<span class="blocked-flag">BLOCKED</span>' : ""}
+          </div>
         </div>
       `;
     }).join("");
   }
 
-  function renderRobustness(selectedAssessment, candidates) {
-    const best = candidates[0];
+  function renderRobustness(selectedAssessment, candidates, critical) {
+    if (critical.hardFail) {
+      els.robustnessScore.textContent = "Blocked";
+      els.robustnessLabel.textContent = "Resolve critical incompatibility before relying on score proximity";
+      return;
+    }
+
+    const best = candidates.find(candidate => !candidate.critical?.hardFail);
     if (!best) {
       els.robustnessScore.textContent = "—";
-      els.robustnessLabel.textContent = "No comparison available";
+      els.robustnessLabel.textContent = "No valid comparison available";
       return;
     }
 
     const gap = Math.max(0, best.score - selectedAssessment.score);
     els.robustnessScore.textContent = gap === 0 ? "0 pts" : `-${gap} pts`;
 
-    if (gap <= 3) els.robustnessLabel.textContent = "Close to best available candidate";
-    else if (gap <= 10) els.robustnessLabel.textContent = "A moderately stronger candidate exists";
-    else els.robustnessLabel.textContent = "A materially stronger candidate exists";
+    if (gap <= 3) els.robustnessLabel.textContent = "Close to best available valid candidate";
+    else if (gap <= 10) els.robustnessLabel.textContent = "A moderately stronger valid candidate exists";
+    else els.robustnessLabel.textContent = "A materially stronger valid candidate exists";
   }
 
   function evaluate() {
@@ -873,12 +1288,17 @@
 
     window.setTimeout(() => {
       const assessment = scoreDataset(state.selectedDataset, input);
+      const critical = criticalCompatibility(input, assessment);
+      assessment.critical = critical;
       const confidence = confidenceScore(input);
       const candidates = rankCandidates(input);
       const notes = buildNotes(assessment, input);
-      const verdict = fitVerdict(assessment.score);
+      const missingInfo = missingInformation(input);
+      const verdict = critical.hardFail
+        ? { text: "Critical mismatch", kind: "danger" }
+        : fitVerdict(assessment.score);
 
-      state.lastAssessment = { input, assessment, confidence, candidates, notes };
+      state.lastAssessment = { input, assessment, confidence, candidates, notes, critical, missingInfo };
 
       els.fitScore.textContent = assessment.score;
       els.fitMeter.style.width = `${assessment.score}%`;
@@ -890,8 +1310,16 @@
 
       renderBreakdown(assessment);
       renderNotes(notes);
+      renderCritical(critical);
+      renderEvidence(input, assessment);
       renderCandidates(candidates);
-      renderRobustness(assessment, candidates);
+      renderComparison(input, assessment, candidates);
+      renderMissingInformation(missingInfo);
+      renderRobustness(assessment, candidates, critical);
+
+      els.evidenceSection.open = false;
+      els.compareSection.open = critical.hardFail || (candidates[0] && candidates[0].score - assessment.score > 10);
+      els.inputQualitySection.open = missingInfo.length >= 3 || confidence < 60;
 
       els.resultsPanel.classList.remove("hidden");
       els.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -931,6 +1359,10 @@
     updateSelectedDataset();
     updateEvaluateState();
     els.resultsPanel.classList.add("hidden");
+    els.criticalCheck.className = "critical-check hidden";
+    els.evidenceSection.open = false;
+    els.compareSection.open = false;
+    els.inputQualitySection.open = false;
   }
 
   function requestReview() {
@@ -945,7 +1377,7 @@
       return;
     }
 
-    const { input, assessment, candidates, notes } = state.lastAssessment;
+    const { input, assessment, candidates, notes, critical, missingInfo } = state.lastAssessment;
     const selected = assessment.row;
     const alternatives = candidates
       .filter(item => selectedKey(item.row) !== selectedKey(selected))
@@ -974,12 +1406,19 @@
       "",
       `Fit score: ${assessment.score}/100`,
       `Confidence: ${state.lastAssessment.confidence}% (${confidenceLabel(state.lastAssessment.confidence)})`,
+      `Critical compatibility: ${critical.hardFail ? "BLOCKED" : (critical.warnings.length ? "REVIEW" : "CLEAR")}`,
+      "",
+      "Critical issues / warnings:",
+      ...[...critical.hard, ...critical.warnings].map(issue => `- ${issue}`),
       "",
       "Assessment notes:",
       ...notes.map(note => `- ${note}`),
       "",
       "Strongest alternative candidates:",
       alternatives || "- No alternative candidate available",
+      "",
+      "Input-quality suggestions:",
+      ...(missingInfo.length ? missingInfo.map(item => `- ${item.title}: ${item.detail}`) : ["- None identified"]),
       "",
       "Reviewer comment:",
       "[Please add the reason for escalation here]",
